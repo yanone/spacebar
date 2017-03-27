@@ -19,9 +19,9 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>0.902</string>
+	<string>0.903</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.902 beta</string>
+	<string>0.903 beta</string>
 	<key>UpdateFeedURL</key>
 	<string>____OnlineUrlToThisPlist____</string>
 	<key>productPageURL</key>

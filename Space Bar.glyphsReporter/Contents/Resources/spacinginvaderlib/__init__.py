@@ -2,13 +2,13 @@
 
 
 
-VERSION = '0.902b'
+VERSION = '0.903b'
 
 
 import copy, traceback, time
-from GlyphsApp import GSGlyph, GSFont, GSInstance
+from GlyphsApp import GSGlyph, GSFont, GSInstance, GSLayer
 from GlyphsApp import *
-from AppKit import NSBezierPath, NSPoint, NSColor, NSString, NSRect, NSHomeDirectory
+from AppKit import NSBezierPath, NSPoint, NSColor, NSString, NSRect, NSHomeDirectory, NSView, NSImage, NSSize, NSZeroRect, NSCompositeCopy, NSCompositeSourceOver
 
 
 PAGEMARGIN = 8
@@ -128,6 +128,16 @@ def GSGlyph_MasterLayers(self):
 	return layers
 
 GSGlyph.masterLayers = property(lambda self: GSGlyph_MasterLayers(self))
+
+def GSGlyph_ChangeString(self):
+	
+	string = self.name
+	for layer in self.layers:
+		string += '%s-%s' % (str(layer.bounds), layer.width)
+
+	return string
+
+GSGlyph.changeString = property(lambda self: GSGlyph_ChangeString(self))
 
 def GSFont_MasterLayers(self):
 	
@@ -295,6 +305,9 @@ class Area(object):
 		self.xScope = 0
 		self.yScope = 0
 
+		# NSImage
+		self.image = None
+
 	def __repr__(self):
 		return '<Area %s>' % (self.title)
 
@@ -386,17 +399,35 @@ class Area(object):
 			self.isMouseOver = False
 			Glyphs.redraw()
 
-
 	def draw(self, font):
+
+		position = self.position()
+		left, bottom, width, height = position
+
+		if width and height and not self.image:
+#		if True:
+
+			self.image = NSImage.alloc().initWithSize_(NSSize(width, height))
+			self.image.lockFocus()
+			self._draw(font, position)
+			self.image.unlockFocus()
+
+		if self.image:
+			self.image.drawAtPoint_fromRect_operation_fraction_(NSPoint(left, bottom), NSZeroRect, NSCompositeSourceOver, 1.0)
+#		font.currentTab.graphicView().addSubview_(self.view)
+
+
+	def _draw(self, font, position):
 
 		# Sort values by interpolation space weight value
 		self.values['foreground'].sort(key=lambda value: value.x, reverse=False)
 
 		tab = font.currentTab
 
-		left, bottom, width, height = self.position()
+		left, bottom, width, height = position
+		left = 0
+		bottom = 0
 		top = bottom + height
-		position = self.position()
 
 
 		# Background
@@ -437,6 +468,9 @@ class Area(object):
 		# Draw values
 
 		left, bottom, width, height = self.drawingArea()
+		left -= position[0]
+		bottom -= position[1]
+
 
 		if self.infoText:
 			self.parent.plugin.drawTextAtPoint(self.infoText, NSPoint(left - 15, bottom - 20), fontSize = 10 * tab.scale, align = 'bottomleft')
@@ -469,8 +503,8 @@ class Area(object):
 
 				# horizontal point zero line
 				y = bottom + (0 - self.yMin) * yScopeAdjust
-				if position[1] + AREACORNERRADIUS <= y <= position[1] + position[3] - AREACORNERRADIUS:
-					line = Line(position[0], y, position[0] + position[2], y, strokeWidth = .25)
+				if bottom + AREACORNERRADIUS <= y <= bottom + height - AREACORNERRADIUS:
+					line = Line(0, y, width * xScopeAdjust, y, strokeWidth = .25)
 					line.draw()
 
 				# vertical master position line
@@ -633,20 +667,21 @@ class Display(object):
 			# Draw a white rectangle all across the Edit View's visible area
 			#NSColor.whiteColor().set()
 			NSColor.colorWithDeviceRed_green_blue_alpha_(1, 1, 1, .95).set()
-			height = self.areas[0].height() + 2 * PAGEMARGIN
-			NSBezierPath.fillRect_(NSRect(NSPoint(leftBorder, Glyphs.font.currentTab.viewPort.origin.y + Glyphs.font.currentTab.viewPort.size.height - height), NSPoint(width, height)))
+			if len(self.areas):
+				height = self.areas[0].height() + 2 * PAGEMARGIN
+				NSBezierPath.fillRect_(NSRect(NSPoint(leftBorder, Glyphs.font.currentTab.viewPort.origin.y + Glyphs.font.currentTab.viewPort.size.height - height), NSPoint(width, height)))
 
-			x = tab.viewPort.origin.x + (tabViewPortSize.width / 2.0 - widthSum / 2.0) * widthAdjust
+				x = tab.viewPort.origin.x + (tabViewPortSize.width / 2.0 - widthSum / 2.0) * widthAdjust
 
-			left = 0
-			for area in self.areas:
-				area.top = top
-				area.left = leftBorder + left
-				area.widthAdjust = widthAdjust
-				area.draw(font)
+				left = 0
+				for area in self.areas:
+					area.top = top
+					area.left = leftBorder + left
+					area.widthAdjust = widthAdjust
+					area.draw(font)
 
-				#top += area.height() + AREAOUTERMARGIN
-				left += area.w * widthAdjust + AREAOUTERMARGIN
+					#top += area.height() + AREAOUTERMARGIN
+					left += area.w * widthAdjust + AREAOUTERMARGIN
 
 
 
@@ -1169,42 +1204,46 @@ def foreground(plugin, layer):
 		if font.tool == 'TextTool' or font.tool == 'SelectTool':
 
 			# Prepare values of masters
-			masterValues = []
-			mastersAdded = []
-			instanceMasters = [x[0] for x in font.instances[0].sortedInterpolationValues]
-			instanceCount = 0
-			for instance in font.instances:
-				if instance.showInPanel(plugin):
+			fontMastersString = str(font.masters)
+			if plugin.mastersChangedString != fontMastersString:
+				plugin.mastersChangedString = fontMastersString
 
-					for master in font.masters:
-						if len(instance.instanceInterpolations.keys()) == 1 and master.id == instance.instanceInterpolations.keys()[0]:
+				plugin.masterValues = []
+				mastersAdded = []
+				instanceMasters = [x[0] for x in font.instances[0].sortedInterpolationValues]
+				instanceCount = 0
+				for instance in font.instances:
+					if instance.showInPanel(plugin):
 
-							mastersAdded.append(master)
+						for master in font.masters:
+							if len(instance.instanceInterpolations.keys()) == 1 and master.id == instance.instanceInterpolations.keys()[0]:
 
-							value = Value(instanceCount, 0)
+								mastersAdded.append(master)
+
+								value = Value(instanceCount, 0)
+								value.size = UNSELECTEDMASTERSIZE
+								value.color = UNSELECTEDMASTERCOLOR
+								value.layer = 'background'
+								value.associatedObject = master
+								plugin.masterValues.append(value)
+
+						newInstanceMasters = [x[0] for x in instance.sortedInterpolationValues]
+
+						if not newInstanceMasters[0] in mastersAdded and len(newInstanceMasters) == 2 and instanceMasters != newInstanceMasters:
+							
+							mastersAdded.append(newInstanceMasters[0])
+
+							x = instanceCount - .5
+							y = 0
+							instanceMasters = newInstanceMasters
+
+							value = Value(x, y)
 							value.size = UNSELECTEDMASTERSIZE
 							value.color = UNSELECTEDMASTERCOLOR
 							value.layer = 'background'
-							value.associatedObject = master
-							masterValues.append(value)
-
-					newInstanceMasters = [x[0] for x in instance.sortedInterpolationValues]
-
-					if not newInstanceMasters[0] in mastersAdded and len(newInstanceMasters) == 2 and instanceMasters != newInstanceMasters:
-						
-						mastersAdded.append(newInstanceMasters[0])
-
-						x = instanceCount - .5
-						y = 0
-						instanceMasters = newInstanceMasters
-
-						value = Value(x, y)
-						value.size = UNSELECTEDMASTERSIZE
-						value.color = UNSELECTEDMASTERCOLOR
-						value.layer = 'background'
-						value.associatedObject = newInstanceMasters[0]
-						masterValues.append(value)
-					instanceCount += 1
+							value.associatedObject = newInstanceMasters[0]
+							plugin.masterValues.append(value)
+						instanceCount += 1
 
 
 
@@ -1216,6 +1255,8 @@ def foreground(plugin, layer):
 			# Prepare glyphs for display
 			leftGlyph = None
 			rightGlyph = None
+			leftLayer = None
+			rightLayer = None
 
 			cachedGlyphs = tab.graphicView().layoutManager().cachedGlyphs()
 
@@ -1225,115 +1266,72 @@ def foreground(plugin, layer):
 				leftGlyph = plugin.tabLayers[textCursor - 1].parent
 				leftLayer = cachedGlyphs[textCursor - 1]
 
-				# Prepare interpolated layers
-				leftLayers = []
-				instanceCount = 0
-				for instance in font.instances:
-
-					if instance.showInPanel(plugin):
-						proxy = instance.interpolatedFontProxy
-						if proxy and instance.showInPanel(plugin):
-							layer = leftGlyph.interpolate_decompose_error_(instance, True, None)
-#							layer = proxy.glyphForName_(leftGlyph.name).layers[0]
-#							layer.updateMetricsAndNotify_(False)
-							leftLayers.append((instanceCount, instance, layer))
-							instanceCount += 1
-
-				# Prepare layers without deviations
-				leftLayersWithoutDeviations = []
-				glyphHasDeviations = False
-				for layer in leftGlyph.layers:
-					if '[' in layer.name or ']' in layer.name or '{' in layer.name:
-						glyphHasDeviations = True
-						break
-				if glyphHasDeviations:
-					glyph = copy.copy(leftGlyph)
-					glyph.name = 'test1'
-					glyph.parent = font
-					for i, layer in enumerate(copy.copy(glyph.layers)):
-						if '[' in layer.name or ']' in layer.name or '{' in layer.name:
-							del glyph.layers[layer.layerId]
-					for layer in glyph.layers:
-						layer.decomposeComponents()
-					for instance in font.instances:
-						if instance.showInPanel(plugin):
-							layer = glyph.interpolate_decompose_error_(instance, True, None)
-							leftLayersWithoutDeviations.append(layer)
 
 
 			if tab and tab.textRange == 0 and 0 <= textCursor < len(tab.text) and len(plugin.tabLayers) >= 1 and 'GSGlyph' in plugin.tabLayers[textCursor].parent.__class__.__name__:
 				rightGlyph = plugin.tabLayers[textCursor].parent
 				rightLayer = cachedGlyphs[textCursor]
 
-#				print rightGlyph.layers
-
-#				print '#######################'
-#				print rightGlyph.name
-
-				# Prepare interpolated layers
-				rightLayers = []
-				instanceCount = 0
-				for instance in font.instances:
-
-					if instance.showInPanel(plugin):
-						proxy = instance.interpolatedFontProxy
-						if proxy and instance.showInPanel(plugin):
-							layer = rightGlyph.interpolate_decompose_error_(instance, True, None)
-							layer = proxy.glyphForName_(rightGlyph.name).layers[0]
-							layer.updateMetricsAndNotify_(False)
-							rightLayers.append((instanceCount, instance, layer))
-							instanceCount += 1
-
-				# Prepare layers without deviations
-				rightLayersWithoutDeviations = []
-				glyphHasDeviations = False
-				for layer in rightGlyph.layers:
-					if '[' in layer.name or ']' in layer.name or '{' in layer.name:
-						glyphHasDeviations = True
-						break
-				if glyphHasDeviations:
-					glyph = copy.copy(rightGlyph)
-					glyph.name = 'test1'
-					glyph.parent = font
-					for i, layer in enumerate(copy.copy(glyph.layers)):
-						if '[' in layer.name or ']' in layer.name or '{' in layer.name:
-							del glyph.layers[layer.layerId]
-					for layer in glyph.layers:
-						layer.decomposeComponents()
-					for instance in font.instances:
-						if instance.showInPanel(plugin):
-							layer = glyph.interpolate_decompose_error_(instance, True, None)
-							rightLayersWithoutDeviations.append(layer)
 
 
-
+			preferencesString = str([plugin.getPreference(x) for x in plugin.names.keys()])
 
 
 			# Left Glyph
 
 			# Add brace layers to masters
 			if leftGlyph:
-				masterValues = copy.copy(masterValues)
-				for layer in leftGlyph.layers:
-					if '{' in layer.name and '}' in layer.name:
-						interpolationValues = map(int, layer.name.split('{')[1].split('}')[0].split(','))
+				changeString = leftGlyph.changeString + str(leftLayer) + str(rightLayer) + preferencesString
+				if not plugin.glyphChangeStrings.has_key('left') or plugin.glyphChangeStrings['left'] != changeString:
 
-						if len(interpolationValues) == 1:
-							for instanceCount, instance, _layer in leftLayers:
-								if instanceCount < len(leftLayers) - 1:
-									if leftLayers[instanceCount][1].weightValue < interpolationValues[0] and leftLayers[instanceCount + 1][1].weightValue > interpolationValues[0]:
-										value = Value(instanceCount + .5, 0)
-										value.size = UNSELECTEDMASTERSIZE
-										value.color = UNSELECTEDMASTERCOLOR
-										value.layer = 'background'
-										if leftLayer == layer:
-											value.associatedObject = layer
-										masterValues.insert(0, value)
+					plugin.glyphChangeStrings['left'] = changeString
+					plugin.areaCache['left'] = []
 
-						elif len(interpolationValues) == 2:
-							for instanceCount, instance, _layer in leftLayers:
-								if instanceCount < len(leftLayers) - 1:
-									if leftLayers[instanceCount][1].widthValue == interpolationValues[1] and leftLayers[instanceCount + 1][1].widthValue == interpolationValues[1]:
+					# Prepare interpolated layers
+					leftLayers = []
+					instanceCount = 0
+					for instance in font.instances:
+
+						if instance.showInPanel(plugin):
+							proxy = instance.interpolatedFontProxy
+							if proxy and instance.showInPanel(plugin):
+								layer = leftGlyph.interpolate_decompose_error_(instance, True, None)
+	#							layer = proxy.glyphForName_(leftGlyph.name).layers[0]
+	#							layer.updateMetricsAndNotify_(False)
+								leftLayers.append((instanceCount, instance, layer))
+								instanceCount += 1
+
+					# Prepare layers without deviations
+					leftLayersWithoutDeviations = []
+					glyphHasDeviations = False
+					for layer in leftGlyph.layers:
+						if '[' in layer.name or ']' in layer.name or '{' in layer.name:
+							glyphHasDeviations = True
+							break
+					if glyphHasDeviations:
+						glyph = copy.copy(leftGlyph)
+						glyph.name = 'test1'
+						glyph.parent = font
+						for i, layer in enumerate(copy.copy(glyph.layers)):
+							if '[' in layer.name or ']' in layer.name or '{' in layer.name:
+								del glyph.layers[layer.layerId]
+						for layer in glyph.layers:
+							layer.decomposeComponents()
+						for instance in font.instances:
+							if instance.showInPanel(plugin):
+								layer = glyph.interpolate_decompose_error_(instance, True, None)
+								leftLayersWithoutDeviations.append(layer)
+
+
+
+					masterValues = copy.copy(plugin.masterValues)
+					for layer in leftGlyph.layers:
+						if '{' in layer.name and '}' in layer.name:
+							interpolationValues = map(int, layer.name.split('{')[1].split('}')[0].split(','))
+
+							if len(interpolationValues) == 1:
+								for instanceCount, instance, _layer in leftLayers:
+									if instanceCount < len(leftLayers) - 1:
 										if leftLayers[instanceCount][1].weightValue < interpolationValues[0] and leftLayers[instanceCount + 1][1].weightValue > interpolationValues[0]:
 											value = Value(instanceCount + .5, 0)
 											value.size = UNSELECTEDMASTERSIZE
@@ -1343,76 +1341,134 @@ def foreground(plugin, layer):
 												value.associatedObject = layer
 											masterValues.insert(0, value)
 
-			# Draw
-			areas = []
+							elif len(interpolationValues) == 2:
+								for instanceCount, instance, _layer in leftLayers:
+									if instanceCount < len(leftLayers) - 1:
+										if leftLayers[instanceCount][1].widthValue == interpolationValues[1] and leftLayers[instanceCount + 1][1].widthValue == interpolationValues[1]:
+											if leftLayers[instanceCount][1].weightValue < interpolationValues[0] and leftLayers[instanceCount + 1][1].weightValue > interpolationValues[0]:
+												value = Value(instanceCount + .5, 0)
+												value.size = UNSELECTEDMASTERSIZE
+												value.color = UNSELECTEDMASTERCOLOR
+												value.layer = 'background'
+												if leftLayer == layer:
+													value.associatedObject = layer
+												masterValues.insert(0, value)
 
-			for action, name, sideOfGlyph in [
-				['sidebearings', 'LSB', 'left'],
-				['width', 'width', None],
-				['bboxw', 'bboxw', None],
-				['bboxh', 'bboxh', None],
-				['bboxt', 'bboxt', None],
-				['bboxb', 'bboxb', None],
-				['sidebearings', 'RSB', 'right'],
-			]:
-				if leftGlyph and plugin.getPreference(action):
-					areas.append(addValues(plugin, action, leftLayers, leftLayersWithoutDeviations, masterValues, display, leftGlyph, sideOfGlyph, 'left', mode, title = plugin.names[name], activeLayer = leftLayer, bgColor = LEFTBGCOLOR))
-			plugin.areas.append(areas)
+					# Draw
+					areas = []
 
+					for action, name, sideOfGlyph in [
+						['sidebearings', 'LSB', 'left'],
+						['width', 'width', None],
+						['bboxw', 'bboxw', None],
+						['bboxh', 'bboxh', None],
+						['bboxt', 'bboxt', None],
+						['bboxb', 'bboxb', None],
+						['sidebearings', 'RSB', 'right'],
+					]:
+						if leftGlyph and plugin.getPreference(action):
+							areas.append(addValues(plugin, action, leftLayers, leftLayersWithoutDeviations, masterValues, display, leftGlyph, sideOfGlyph, 'left', mode, title = plugin.names[name], activeLayer = leftLayer, bgColor = LEFTBGCOLOR))
+					plugin.areaCache['left'] = areas
+
+				plugin.areas.append(plugin.areaCache['left'])
 
 			# Kerning
 			if leftGlyph and rightGlyph and plugin.getPreference('kerning'):
-				plugin.areas.append([addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activeLayer = leftLayer)])
+				plugin.areas.append([addKerning(display, plugin, leftGlyph, rightGlyph, mode, plugin.masterValues, activeLayer = leftLayer)])
 
 
 			# Right Glyph
+			if rightGlyph:
+				changeString = rightGlyph.changeString + str(leftLayer) + str(rightLayer) + preferencesString
+				if not plugin.glyphChangeStrings.has_key('right') or plugin.glyphChangeStrings['right'] != changeString:
 
-			# Add brace layers to masters
-			masterValues = copy.copy(masterValues)
-			for layer in rightGlyph.layers:
-				if '{' in layer.name and '}' in layer.name:
-					interpolationValues = map(int, layer.name.split('{')[1].split('}')[0].split(','))
+					plugin.glyphChangeStrings['right'] = changeString
+					plugin.areaCache['right'] = []
 
-					if len(interpolationValues) == 1:
-						for instanceCount, instance, _layer in rightLayers:
-							if instanceCount < len(rightLayers) - 1:
-								if rightLayers[instanceCount][1].weightValue < interpolationValues[0] and rightLayers[instanceCount + 1][1].weightValue > interpolationValues[0]:
-									value = Value(instanceCount + .5, 0)
-									value.size = UNSELECTEDMASTERSIZE
-									value.color = UNSELECTEDMASTERCOLOR
-									value.layer = 'background'
-									if rightLayer == layer:
-										value.associatedObject = layer
-									masterValues.insert(0, value)
+					# Prepare interpolated layers
+					rightLayers = []
+					instanceCount = 0
+					for instance in font.instances:
 
-					elif len(interpolationValues) == 2:
-						for instanceCount, instance, _layer in rightLayers:
-							if instanceCount < len(rightLayers) - 1:
-								if rightLayers[instanceCount][1].widthValue == interpolationValues[1] and rightLayers[instanceCount + 1][1].widthValue == interpolationValues[1]:
-									if rightLayers[instanceCount][1].weightValue < interpolationValues[0] and rightLayers[instanceCount + 1][1].weightValue > interpolationValues[0]:
-										value = Value(instanceCount + .5, 0)
-										value.size = UNSELECTEDMASTERSIZE
-										value.color = UNSELECTEDMASTERCOLOR
-										value.layer = 'background'
-										if rightLayer == layer:
-											value.associatedObject = layer
-										masterValues.insert(0, value)
+						if instance.showInPanel(plugin):
+							proxy = instance.interpolatedFontProxy
+							if proxy and instance.showInPanel(plugin):
+								layer = rightGlyph.interpolate_decompose_error_(instance, True, None)
+								layer = proxy.glyphForName_(rightGlyph.name).layers[0]
+								layer.updateMetricsAndNotify_(False)
+								rightLayers.append((instanceCount, instance, layer))
+								instanceCount += 1
 
-			# Draw
-			areas = []
+					# Prepare layers without deviations
+					rightLayersWithoutDeviations = []
+					glyphHasDeviations = False
+					for layer in rightGlyph.layers:
+						if '[' in layer.name or ']' in layer.name or '{' in layer.name:
+							glyphHasDeviations = True
+							break
+					if glyphHasDeviations:
+						glyph = copy.copy(rightGlyph)
+						glyph.name = 'test1'
+						glyph.parent = font
+						for i, layer in enumerate(copy.copy(glyph.layers)):
+							if '[' in layer.name or ']' in layer.name or '{' in layer.name:
+								del glyph.layers[layer.layerId]
+						for layer in glyph.layers:
+							layer.decomposeComponents()
+						for instance in font.instances:
+							if instance.showInPanel(plugin):
+								layer = glyph.interpolate_decompose_error_(instance, True, None)
+								rightLayersWithoutDeviations.append(layer)
 
-			for action, name, sideOfGlyph in [
-				['sidebearings', 'LSB', 'left'],
-				['width', 'width', None],
-				['bboxw', 'bboxw', None],
-				['bboxh', 'bboxh', None],
-				['bboxt', 'bboxt', None],
-				['bboxb', 'bboxb', None],
-				['sidebearings', 'RSB', 'right'],
-			]:
-				if rightGlyph and plugin.getPreference(action):
-					areas.append(addValues(plugin, action, rightLayers, rightLayersWithoutDeviations, masterValues, display, rightGlyph, sideOfGlyph, 'right', mode, title = plugin.names[name], activeLayer = rightLayer, bgColor = RIGHTBGCOLOR))
-			plugin.areas.append(areas)
+					# Add brace layers to masters
+					masterValues = copy.copy(plugin.masterValues)
+					for layer in rightGlyph.layers:
+						if '{' in layer.name and '}' in layer.name:
+							interpolationValues = map(int, layer.name.split('{')[1].split('}')[0].split(','))
+
+							if len(interpolationValues) == 1:
+								for instanceCount, instance, _layer in rightLayers:
+									if instanceCount < len(rightLayers) - 1:
+										if rightLayers[instanceCount][1].weightValue < interpolationValues[0] and rightLayers[instanceCount + 1][1].weightValue > interpolationValues[0]:
+											value = Value(instanceCount + .5, 0)
+											value.size = UNSELECTEDMASTERSIZE
+											value.color = UNSELECTEDMASTERCOLOR
+											value.layer = 'background'
+											if rightLayer == layer:
+												value.associatedObject = layer
+											masterValues.insert(0, value)
+
+							elif len(interpolationValues) == 2:
+								for instanceCount, instance, _layer in rightLayers:
+									if instanceCount < len(rightLayers) - 1:
+										if rightLayers[instanceCount][1].widthValue == interpolationValues[1] and rightLayers[instanceCount + 1][1].widthValue == interpolationValues[1]:
+											if rightLayers[instanceCount][1].weightValue < interpolationValues[0] and rightLayers[instanceCount + 1][1].weightValue > interpolationValues[0]:
+												value = Value(instanceCount + .5, 0)
+												value.size = UNSELECTEDMASTERSIZE
+												value.color = UNSELECTEDMASTERCOLOR
+												value.layer = 'background'
+												if rightLayer == layer:
+													value.associatedObject = layer
+												masterValues.insert(0, value)
+
+					# Draw
+					areas = []
+
+					for action, name, sideOfGlyph in [
+						['sidebearings', 'LSB', 'left'],
+						['width', 'width', None],
+						['bboxw', 'bboxw', None],
+						['bboxh', 'bboxh', None],
+						['bboxt', 'bboxt', None],
+						['bboxb', 'bboxb', None],
+						['sidebearings', 'RSB', 'right'],
+					]:
+						if rightGlyph and plugin.getPreference(action):
+							areas.append(addValues(plugin, action, rightLayers, rightLayersWithoutDeviations, masterValues, display, rightGlyph, sideOfGlyph, 'right', mode, title = plugin.names[name], activeLayer = rightLayer, bgColor = RIGHTBGCOLOR))
+					plugin.areaCache['right'] = areas
+
+				plugin.areas.append(plugin.areaCache['right'])
+
 
 			calcTime = time.time() - calcTime
 
@@ -1433,7 +1489,7 @@ def foreground(plugin, layer):
 		if NSHomeDirectory() == '/Users/yanone':
 			left = tab.viewPort.origin.x + PAGEMARGIN
 			top = tab.viewPort.origin.y + PAGEMARGIN
-			plugin.drawTextAtPoint('Calc: %ss, Draw: %ss' % (str(calcTime)[:6], str(drawTime)[:6]), NSPoint(left, top), fontSize = 10 * tab.scale, align = 'left')
+			plugin.drawTextAtPoint('Calc: %ss, Draw: %ss, Total: %ss' % (str(calcTime)[:4], str(drawTime)[:4], str(calcTime + drawTime)[:4]), NSPoint(left, top), fontSize = 10 * tab.scale, align = 'left')
 
 	except:
 		print traceback.format_exc()
@@ -1445,6 +1501,10 @@ def start(plugin):
 	plugin.tabString = None
 	plugin.mouseActiveObject = None
 
+	# Cache
+	plugin.glyphChangeStrings = {}
+	plugin.areaCache = {}
+	plugin.mastersChangedString = ''
 
 
 
@@ -1718,7 +1778,7 @@ class SpacingInvader(ReporterPlugin):
 			reload(spacinginvaderlib)
 			Glyphs.clearLog()
 			self.settings()
-			spacinginvaderlib.start(self)
+			self.start()
 		except:
 			print traceback.format_exc()
 
