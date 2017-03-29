@@ -1295,9 +1295,9 @@ def foreground(plugin, layer):
 						if instance.showInPanel(plugin):
 							proxy = instance.interpolatedFontProxy
 							if proxy and instance.showInPanel(plugin):
-								layer = leftGlyph.interpolate_decompose_error_(instance, True, None)
-	#							layer = proxy.glyphForName_(leftGlyph.name).layers[0]
-	#							layer.updateMetricsAndNotify_(False)
+	#							layer = leftGlyph.interpolate_decompose_error_(instance, True, None)
+								layer = proxy.glyphForName_(leftGlyph.name).layers[0]
+								layer.updateMetricsAndNotify_(False)
 								leftLayers.append((instanceCount, instance, layer))
 								instanceCount += 1
 
@@ -1393,7 +1393,7 @@ def foreground(plugin, layer):
 						if instance.showInPanel(plugin):
 							proxy = instance.interpolatedFontProxy
 							if proxy and instance.showInPanel(plugin):
-								layer = rightGlyph.interpolate_decompose_error_(instance, True, None)
+#								layer = rightGlyph.interpolate_decompose_error_(instance, True, None)
 								layer = proxy.glyphForName_(rightGlyph.name).layers[0]
 								layer.updateMetricsAndNotify_(False)
 								rightLayers.append((instanceCount, instance, layer))
