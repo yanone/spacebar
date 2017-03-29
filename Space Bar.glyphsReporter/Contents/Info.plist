@@ -23,7 +23,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>0.903 beta</string>
 	<key>UpdateFeedURL</key>
-	<string>____OnlineUrlToThisPlist____</string>
+	<string>https://yanone.de/buy/?page=versionInformation&amp;product=spacebarglyphs&amp;format=GlyphsInfoPlist</string>
 	<key>productPageURL</key>
 	<string>https://yanone.de/software/spacebar/</string>
 	<key>LSHasLocalizedDisplayName</key>
