@@ -2,13 +2,15 @@
 
 
 
-VERSION = '0.903b'
-
-
-import copy, traceback, time
+import copy, traceback, time, os
 from GlyphsApp import GSGlyph, GSFont, GSInstance, GSLayer
 from GlyphsApp import *
-from AppKit import NSBezierPath, NSPoint, NSColor, NSString, NSRect, NSHomeDirectory, NSView, NSImage, NSSize, NSZeroRect, NSCompositeCopy, NSCompositeSourceOver
+import GlyphsApp.plugins
+from AppKit import NSBezierPath, NSPoint, NSColor, NSString, NSRect, NSHomeDirectory, NSView, NSImage, NSSize, NSZeroRect, NSCompositeCopy, NSCompositeSourceOver, NSMenuItem, NSMenu, NSOnState, NSOffState, NSMixedState, NSWorkspace, NSURL, NSBundle
+import plistlib
+
+plist = plistlib.readPlist(os.path.join(os.path.dirname(__file__), '..', '..', 'Info.plist'))
+VERSION = plist['CFBundleShortVersionString']
 
 
 PAGEMARGIN = 8
@@ -44,7 +46,7 @@ SELECTEDMASTERCOLOR = (160, 160, 160)
 SELECTEDMASTERSIZE = 20
 LINECOLOR = (100, 100, 100)
 ACTIVECOLOR = (0, 0, 0)
-INACTIVECOLOR = (100, 100, 100)
+INACTIVECOLOR = (140, 140, 140)
 DEVIATIONCOLOR = (233, 93, 15)
 DEVIATIONORIGINALCOLOR = (120, 120, 120)
 
@@ -164,6 +166,20 @@ def GSFont_ActiveInstances(self):
 	return instances
 
 GSFont.activeInstances = property(lambda self: GSFont_ActiveInstances(self))
+
+def GSFont_VisibleInstances(self, plugin):
+	
+	instances = []
+	
+	for instance in self.instances:
+
+		if instance.showInPanel(plugin):
+			instances.append(instance)
+	
+	
+	return instances
+
+GSFont.visibleInstances = GSFont_VisibleInstances
 
 def GSInstance_ShowInPanel(self, plugin):
 	return plugin.getPreference('onlyActiveInstances') == False or plugin.getPreference('onlyActiveInstances') == True and self.active == True
@@ -567,6 +583,7 @@ class Area(object):
 	def addMasterValues(self, masterValues, font, activeLayer, glyphSideOnDisplay):
 		activeLayerChosen = False
 		for masterValue in masterValues:
+			
 			masterValue = copy.copy(masterValue)
 			instanceValue = self.values['foreground'][int(masterValue.x)]
 			masterValue.y = instanceValue.y
@@ -1039,6 +1056,26 @@ def addValues(plugin, action, layers, layersWithoutDeviations, masterValues, dis
 	return sbArea
 
 
+def getKerning(master, leftGlyph, rightGlyph):
+    font = leftGlyph.parent
+    _kerning = font.kerningForPair(master.id, leftGlyph.rightKerningKey, rightGlyph.leftKerningKey)
+    kerningExceptionLeft = font.kerningForPair(master.id, leftGlyph.name, rightGlyph.rightKerningKey)
+    kerningExceptionRight = font.kerningForPair(master.id, leftGlyph.rightKerningKey, rightGlyph.name)
+    kerningExceptionBoth = font.kerningForPair(master.id, leftGlyph.name, rightGlyph.name)
+    exception = False
+    if _kerning > 1000000000:
+        _kerning = 0
+    if kerningExceptionLeft < 1000000000:
+        _kerning = kerningExceptionLeft
+        exception = True
+    if kerningExceptionRight < 1000000000:
+        _kerning = kerningExceptionRight
+        exception = True
+    if kerningExceptionBoth < 1000000000:
+        _kerning = kerningExceptionBoth
+        exception = True
+    return (_kerning, exception)
+
 
 def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activeLayer):
 
@@ -1204,7 +1241,9 @@ def foreground(plugin, layer):
 		if font.tool == 'TextTool' or font.tool == 'SelectTool':
 
 			# Prepare values of masters
-			fontMastersString = str(font.masters)
+			activeInstances = font.visibleInstances(plugin)
+			fontMastersString = str(font.masters) + str(activeInstances) + str(plugin.getPreference('onlyActiveInstances'))
+
 			if plugin.mastersChangedString != fontMastersString:
 				plugin.mastersChangedString = fontMastersString
 
@@ -1212,37 +1251,43 @@ def foreground(plugin, layer):
 				mastersAdded = []
 				instanceMasters = [x[0] for x in font.instances[0].sortedInterpolationValues]
 				instanceCount = 0
+
+
 				for instance in font.instances:
+
 					if instance.showInPanel(plugin):
 
 						for master in font.masters:
 							if len(instance.instanceInterpolations.keys()) == 1 and master.id == instance.instanceInterpolations.keys()[0]:
 
-								mastersAdded.append(master)
+								if activeInstances[0].weightValue <= master.weightValue <= activeInstances[-1].weightValue:
+									mastersAdded.append(master)
 
-								value = Value(instanceCount, 0)
-								value.size = UNSELECTEDMASTERSIZE
-								value.color = UNSELECTEDMASTERCOLOR
-								value.layer = 'background'
-								value.associatedObject = master
-								plugin.masterValues.append(value)
+									value = Value(instanceCount, 0)
+									value.size = UNSELECTEDMASTERSIZE
+									value.color = UNSELECTEDMASTERCOLOR
+									value.layer = 'background'
+									value.associatedObject = master
+									plugin.masterValues.append(value)
+							#		instanceCount += 1
 
 						newInstanceMasters = [x[0] for x in instance.sortedInterpolationValues]
 
 						if not newInstanceMasters[0] in mastersAdded and len(newInstanceMasters) == 2 and instanceMasters != newInstanceMasters:
 							
-							mastersAdded.append(newInstanceMasters[0])
+							if activeInstances[0].weightValue <= newInstanceMasters[0].weightValue <= activeInstances[-1].weightValue:
+								mastersAdded.append(newInstanceMasters[0])
 
-							x = instanceCount - .5
-							y = 0
-							instanceMasters = newInstanceMasters
+								x = instanceCount - .5
+								y = 0
+								instanceMasters = newInstanceMasters
 
-							value = Value(x, y)
-							value.size = UNSELECTEDMASTERSIZE
-							value.color = UNSELECTEDMASTERCOLOR
-							value.layer = 'background'
-							value.associatedObject = newInstanceMasters[0]
-							plugin.masterValues.append(value)
+								value = Value(x, y)
+								value.size = UNSELECTEDMASTERSIZE
+								value.color = UNSELECTEDMASTERCOLOR
+								value.layer = 'background'
+								value.associatedObject = newInstanceMasters[0]
+								plugin.masterValues.append(value)
 						instanceCount += 1
 
 
@@ -1272,6 +1317,10 @@ def foreground(plugin, layer):
 				rightGlyph = plugin.tabLayers[textCursor].parent
 				rightLayer = cachedGlyphs[textCursor]
 
+			# Change order for RTL
+			if tab.direction == RTL:
+				leftGlyph, rightGlyph = rightGlyph, leftGlyph
+				leftLayer, rightLayer = rightLayer, leftLayer
 
 
 			preferencesString = str([plugin.getPreference(x) for x in plugin.names.keys()])
@@ -1281,7 +1330,7 @@ def foreground(plugin, layer):
 
 			# Add brace layers to masters
 			if leftGlyph:
-				changeString = leftGlyph.changeString + str(leftLayer) + str(rightLayer) + preferencesString
+				changeString = leftGlyph.changeString + str(leftLayer) + str(rightLayer) + preferencesString + str(font.activeInstances)
 				if not plugin.glyphChangeStrings.has_key('left') or plugin.glyphChangeStrings['left'] != changeString:
 
 					plugin.glyphChangeStrings['left'] = changeString
@@ -1332,7 +1381,7 @@ def foreground(plugin, layer):
 							if len(interpolationValues) == 1:
 								for instanceCount, instance, _layer in leftLayers:
 									if instanceCount < len(leftLayers) - 1:
-										if leftLayers[instanceCount][1].weightValue < interpolationValues[0] and leftLayers[instanceCount + 1][1].weightValue > interpolationValues[0]:
+										if leftLayers[instanceCount][1].weightValue <= interpolationValues[0] <= leftLayers[instanceCount + 1][1].weightValue:
 											value = Value(instanceCount + .5, 0)
 											value.size = UNSELECTEDMASTERSIZE
 											value.color = UNSELECTEDMASTERCOLOR
@@ -1379,7 +1428,7 @@ def foreground(plugin, layer):
 
 			# Right Glyph
 			if rightGlyph:
-				changeString = rightGlyph.changeString + str(leftLayer) + str(rightLayer) + preferencesString
+				changeString = rightGlyph.changeString + str(leftLayer) + str(rightLayer) + preferencesString + str(font.activeInstances)
 				if not plugin.glyphChangeStrings.has_key('right') or plugin.glyphChangeStrings['right'] != changeString:
 
 					plugin.glyphChangeStrings['right'] = changeString
@@ -1429,7 +1478,7 @@ def foreground(plugin, layer):
 							if len(interpolationValues) == 1:
 								for instanceCount, instance, _layer in rightLayers:
 									if instanceCount < len(rightLayers) - 1:
-										if rightLayers[instanceCount][1].weightValue < interpolationValues[0] and rightLayers[instanceCount + 1][1].weightValue > interpolationValues[0]:
+										if rightLayers[instanceCount][1].weightValue <= interpolationValues[0] <= rightLayers[instanceCount + 1][1].weightValue:
 											value = Value(instanceCount + .5, 0)
 											value.size = UNSELECTEDMASTERSIZE
 											value.color = UNSELECTEDMASTERCOLOR
@@ -1500,6 +1549,7 @@ def start(plugin):
 	plugin.tabOtherLayers = None
 	plugin.tabString = None
 	plugin.mouseActiveObject = None
+	plugin.mastersChangedString = None
 
 	# Cache
 	plugin.glyphChangeStrings = {}
@@ -1523,6 +1573,7 @@ def mouse(plugin, info):
 	for a in plugin.areas:
 		for area in a:
 			area.mouseOver(mousePosition)
+
 
 
 
@@ -1580,13 +1631,14 @@ class SpacingInvader(ReporterPlugin):
 			self.setPreference('onlyActiveInstances', False)
 
 		self.names = {
+			'mode': 'Modus',
+			'show': Glyphs.localize({'en': 'Show', 'de': 'Zeige'}),
 			'interpolation': Glyphs.localize({'en': 'Interpolation Space', 'de': 'Interpolationsraum'}),
-			'sidebearings': Glyphs.localize({'en': 'Interpolation Space', 'de': 'Interpolationsraum'}),
 			'kerning': 'Kerning',
-			'bboxw': Glyphs.localize({'en': u'BBox Width', 'de': 'BBox Breite'}),
-			'bboxh': Glyphs.localize({'en': u'BBox Height', 'de': u'BBox Höhe'}),
-			'bboxt': Glyphs.localize({'en': u'BBox Highest', 'de': u'Höchster Punkt'}),
-			'bboxb': Glyphs.localize({'en': u'BBox Lowest', 'de': u'Niedrigster Punkt'}),
+			'bboxw': Glyphs.localize({'en': u'BBox Width', 'de': 'BBox-Breite'}),
+			'bboxh': Glyphs.localize({'en': u'BBox Height', 'de': u'BBox-Höhe'}),
+			'bboxt': Glyphs.localize({'en': u'BBox Highest Point', 'de': u'BBox Höchster Punkt'}),
+			'bboxb': Glyphs.localize({'en': u'BBox Lowest Point', 'de': u'BBox Niedrigster Punkt'}),
 			'width': Glyphs.localize({'en': u'Width', 'de': 'Breite'}),
 			'sidebearings': Glyphs.localize({'en': 'Sidebearings', 'de': 'Vor/Nachbreite'}),
 			'LSB': Glyphs.localize({'en': u'Left Sidebearing', 'de': 'Vorbreite'}),
@@ -1646,17 +1698,23 @@ class SpacingInvader(ReporterPlugin):
 
 
 		# Define the menu
-		self.generalContextMenus = [
+		self.generalContextMenus = []
+
+		if not hasattr(GlyphsApp.plugins, 'USESELFCREATEDNSMENUITEMS') or GlyphsApp.plugins.USESELFCREATEDNSMENUITEMS == False:
+			self.generalContextMenus.append(
 			{"view": self.sliderMenuView.group.getNSView()},
-		]
+		)
 		if NSHomeDirectory() == '/Users/yanone':
-			self.generalContextMenus.append({"name": "Reload Spacing Invader", "action": self.reloadLib})
+			self.generalContextMenus.append(
+				{"name": "Reload Space Bar", "action": self.reloadLib}
+			)
+			
 
 
 		Glyphs.addCallback(self.mouse, MOUSEMOVED)
 
 		# Trial
-		self.trial = True
+		self.trial = False
 		if self.trial:
 			self.trialKey = 'clearDrawInitMethod'
 			self.trialPeriod = 30
@@ -1690,7 +1748,7 @@ class SpacingInvader(ReporterPlugin):
 				}),
 				Glyphs.localize({
 			        'en':  'Your %s-day trial period of Space Bar has expired.\nPlease hop over to https://yanone.de/buy/software/ to purchase the plug-in for just 20 EUR (15 EUR for students).' % self.trialPeriod,
-			        'de': u'Deine %s-Tage-Testperiode von Space Bar ist ausgelaufen.\nAuf https://yanone.de/buy/software/\nkannst Du das Plug-In für nur 20 EUR (15 EUR für Studenten) erwerben.' % self.trialPeriod,
+			        'de': u'Deine %s-Tage-Testperiode von Space Bar ist abgelaufen.\nAuf https://yanone.de/buy/software/\nkannst Du das Plug-In für nur 20 EUR (15 EUR für Studenten) erwerben.' % self.trialPeriod,
 				}))
 
 		if justInstalled and self.trial == False and environment == 'GlyphsApp':
@@ -1698,10 +1756,178 @@ class SpacingInvader(ReporterPlugin):
 		        'en': u'Welcome to Space Bar %s' % VERSION,
 		        'de': u'Willkommen zu Space Bar %s' % VERSION,
 			}), Glyphs.localize({
-		        'en': u'Thank you for choosing Space Bar. You’ll find me in the View menu under ‘Show Space Bar’. Enjoy.',
-		        'de': u'Danke zur Wahl von Space Bar. Du findest mich im Ansicht-Menü unter ‘Space Bar anzeigen’. Viel Spaß.',
+		        'en': u'Thank you for choosing Space Bar. You’ll find me in the View menu under ‘Show Space Bar’. Enjoy and make sure to follow @yanone on Twitter.',
+		        'de': u'Danke zur Wahl von Space Bar. Du findest mich im Ansicht-Menü unter ‘Space Bar anzeigen’. Viel Spaß und wir sehen uns bei @yanone auf Twitter.',
 			})
 			)
+
+	def conditionalContextMenus(self):
+		# Empty list of context menu items
+		contextMenus = []
+
+
+		if hasattr(GlyphsApp.plugins, 'USESELFCREATEDNSMENUITEMS') and GlyphsApp.plugins.USESELFCREATEDNSMENUITEMS == True:
+
+			# Dot Icon
+			path = __file__
+			Bundle = NSBundle.bundleWithPath_(path[:path.rfind("Contents/Resources/")])
+			dot = Bundle.imageForResource_('menudot')
+			dot.setTemplate_(True) # Makes the icon blend in with the toolbar.
+			dot.setSize_(NSSize(16, 16))
+
+
+			# Show Masters
+			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Masters', 'de': 'Master'}), self.callbackShowMasters, "")
+			if self.getPreference('mode') == 'masters':
+				menu.setState_(NSOnState)
+				menu.setOnStateImage_(dot)
+			contextMenus.append({"menu": menu})
+
+			# Show Instances
+			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Instances', 'de': 'Instanzen'}), self.callbackShowInstances, "")
+			if self.getPreference('mode') == 'instances':
+				menu.setState_(NSOnState)
+				menu.setOnStateImage_(dot)
+			contextMenus.append({"menu": menu})
+
+			# Only active instances
+			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Show Only Active Instances', 'de': 'Zeige nur aktive Instanzen'}), self.callbackShowOnlyActiveInstances, "")
+			if self.getPreference('onlyActiveInstances') == True:
+				menu.setState_(NSOnState)
+			if self.getPreference('mode') == 'masters':
+				menu.setAction_(None)
+			contextMenus.append({"menu": menu})
+
+			# ---------- Separator
+			contextMenus.append({"menu": NSMenuItem.separatorItem()})
+
+			# Show Interpolations Space
+			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['interpolation'], self.callbackShowInterpolation, "")
+			if self.getPreference('interpolation') == True:
+				menu.setState_(NSOnState)
+			contextMenus.append({"menu": menu})
+
+			# Show Kerning
+			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['kerning'], self.callbackShowKerning, "")
+			if self.getPreference('kerning') == True:
+				menu.setState_(NSOnState)
+			contextMenus.append({"menu": menu})
+
+			# ---------- Separator
+			contextMenus.append({"menu": NSMenuItem.separatorItem()})
+
+			# Show Width
+			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['width'], self.callbackShowWidth, "")
+			if self.getPreference('width') == True:
+				menu.setState_(NSOnState)
+			contextMenus.append({"menu": menu})
+
+			# Show Sidebearings
+			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['sidebearings'], self.callbackShowSidebearings, "")
+			if self.getPreference('sidebearings') == True:
+				menu.setState_(NSOnState)
+			contextMenus.append({"menu": menu})
+
+			# Show BBox Width
+			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxw'], self.callbackShowBboxw, "")
+			if self.getPreference('bboxw') == True:
+				menu.setState_(NSOnState)
+			contextMenus.append({"menu": menu})
+
+			# Show BBox Height
+			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxh'], self.callbackShowBboxh, "")
+			if self.getPreference('bboxh') == True:
+				menu.setState_(NSOnState)
+			contextMenus.append({"menu": menu})
+
+			# Show BBox Heighest
+			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxt'], self.callbackShowBboxt, "")
+			if self.getPreference('bboxt') == True:
+				menu.setState_(NSOnState)
+			contextMenus.append({"menu": menu})
+
+			# Show BBox Lowest
+			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxb'], self.callbackShowBboxb, "")
+			if self.getPreference('bboxb') == True:
+				menu.setState_(NSOnState)
+			contextMenus.append({"menu": menu})
+
+			# ---------- Separator
+			contextMenus.append({"menu": NSMenuItem.separatorItem()})
+
+			# Website
+			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Space Bar Website...', 'de': 'Space Bar Webseite...'}), self.callbackGoToWebsite, "")
+			contextMenus.append({"menu": menu})
+
+			# Twitter
+			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': '@yanone on Twitter...', 'de': '@yanone auf Twitter...'}), self.callbackGoToTwitter, "")
+			contextMenus.append({"menu": menu})
+
+			# Put them into a sub menu
+			if hasattr(GlyphsApp.plugins, 'PLUGINMENUSINFORCEDSUBMENU') and GlyphsApp.plugins.PLUGINMENUSINFORCEDSUBMENU == False:
+				menu = NSMenuItem.alloc().init()
+				menu.setTitle_('Space Bar v%s' % VERSION)
+				subMenu = NSMenu.alloc().init()
+				for item in contextMenus:
+					item['menu'].setTarget_(self)
+					subMenu.addItem_(item['menu'])
+				menu.setSubmenu_(subMenu)
+
+				return [{'menu': menu}]
+
+		# Return list of context menu items
+		return contextMenus
+
+
+	def callbackGoToWebsite(self, sender):
+		NSWorkspace.sharedWorkspace().openURL_(NSURL.URLWithString_('https://yanone.de/software/spacebar/'))
+		
+	def callbackGoToTwitter(self, sender):
+		NSWorkspace.sharedWorkspace().openURL_(NSURL.URLWithString_('https://twitter.com/yanone/'))
+
+	def callbackShowMasters(self, sender):
+		self.setPreference('mode', 'masters')
+		Glyphs.redraw()
+
+	def callbackShowInstances(self, sender):
+		self.setPreference('mode', 'instances')
+		Glyphs.redraw()
+
+	def callbackShowOnlyActiveInstances(self, sender):
+		self.setPreference('onlyActiveInstances', not self.getPreference('onlyActiveInstances'))
+		Glyphs.redraw()
+
+	def callbackShowWidth(self, sender):
+		self.setPreference('width', not self.getPreference('width'))
+		Glyphs.redraw()
+
+	def callbackShowSidebearings(self, sender):
+		self.setPreference('sidebearings', not self.getPreference('sidebearings'))
+		Glyphs.redraw()
+
+	def callbackShowInterpolation(self, sender):
+		self.setPreference('interpolation', not self.getPreference('interpolation'))
+		Glyphs.redraw()
+
+	def callbackShowKerning(self, sender):
+		self.setPreference('kerning', not self.getPreference('kerning'))
+		Glyphs.redraw()
+
+	def callbackShowBboxw(self, sender):
+		self.setPreference('bboxw', not self.getPreference('bboxw'))
+		Glyphs.redraw()
+
+	def callbackShowBboxh(self, sender):
+		self.setPreference('bboxh', not self.getPreference('bboxh'))
+		Glyphs.redraw()
+
+	def callbackShowBboxt(self, sender):
+		self.setPreference('bboxt', not self.getPreference('bboxt'))
+		Glyphs.redraw()
+
+	def callbackShowBboxb(self, sender):
+		self.setPreference('bboxb', not self.getPreference('bboxb'))
+		Glyphs.redraw()
 
 	def trialDaysLeft(self):
 		return self.trialPeriod - int((int(time.time()) - Glyphs.defaults[self.trialKey]) / float(24*60*60))
