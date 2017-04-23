@@ -1221,9 +1221,14 @@ def foreground(plugin, layer):
 
 		calcTime = time.time()
 
-		font = Glyphs.font
+		font = layer.parent.parent
+		layer = plugin.controller.graphicView().activeLayer()
+
+#		if not font.tempData().has_key('spaceBarTab'):
+#			font.tempData()['spaceBarTab'] = font.currentTab
+
 		tab = font.currentTab
-		plugin.areas = []
+		font.tempData()['spaceBarAreas'] = []
 		display = Display(plugin)
 
 		# Settings
@@ -1237,6 +1242,7 @@ def foreground(plugin, layer):
 			plugin.tabLayers = tab.composedLayers
 		textCursor = tab.textCursor
 
+		print plugin.controller
 
 		if font.tool == 'TextTool' or font.tool == 'SelectTool':
 
@@ -1294,7 +1300,7 @@ def foreground(plugin, layer):
 
 			# Add interpolation space panel
 			if plugin.getPreference('interpolation'):
-				plugin.areas.append([addInterpolation(display, font, plugin.getPreference('mode'), plugin.names['interpolation'])])
+				font.tempData()['spaceBarAreas'].append([addInterpolation(display, font, plugin.getPreference('mode'), plugin.names['interpolation'])])
 
 
 			# Prepare glyphs for display
@@ -1330,7 +1336,7 @@ def foreground(plugin, layer):
 
 			# Add brace layers to masters
 			if leftGlyph:
-				changeString = leftGlyph.changeString + str(leftLayer) + str(rightLayer) + preferencesString + str(font.activeInstances)
+				changeString = leftGlyph.changeString + str(leftLayer) + str(rightLayer) + preferencesString + str(font.activeInstances) + str(tab.viewPort.size.width) + str(tab.viewPort.size.height)
 				if not plugin.glyphChangeStrings.has_key('left') or plugin.glyphChangeStrings['left'] != changeString:
 
 					plugin.glyphChangeStrings['left'] = changeString
@@ -1419,16 +1425,16 @@ def foreground(plugin, layer):
 							areas.append(addValues(plugin, action, leftLayers, leftLayersWithoutDeviations, masterValues, display, leftGlyph, sideOfGlyph, 'left', mode, title = plugin.names[name], activeLayer = leftLayer, bgColor = LEFTBGCOLOR))
 					plugin.areaCache['left'] = areas
 
-				plugin.areas.append(plugin.areaCache['left'])
+				font.tempData()['spaceBarAreas'].append(plugin.areaCache['left'])
 
 			# Kerning
 			if leftGlyph and rightGlyph and plugin.getPreference('kerning'):
-				plugin.areas.append([addKerning(display, plugin, leftGlyph, rightGlyph, mode, plugin.masterValues, activeLayer = leftLayer)])
+				font.tempData()['spaceBarAreas'].append([addKerning(display, plugin, leftGlyph, rightGlyph, mode, plugin.masterValues, activeLayer = leftLayer)])
 
 
 			# Right Glyph
 			if rightGlyph:
-				changeString = rightGlyph.changeString + str(leftLayer) + str(rightLayer) + preferencesString + str(font.activeInstances)
+				changeString = rightGlyph.changeString + str(leftLayer) + str(rightLayer) + preferencesString + str(font.activeInstances) + str(tab.viewPort.size.width) + str(tab.viewPort.size.height)
 				if not plugin.glyphChangeStrings.has_key('right') or plugin.glyphChangeStrings['right'] != changeString:
 
 					plugin.glyphChangeStrings['right'] = changeString
@@ -1516,17 +1522,17 @@ def foreground(plugin, layer):
 							areas.append(addValues(plugin, action, rightLayers, rightLayersWithoutDeviations, masterValues, display, rightGlyph, sideOfGlyph, 'right', mode, title = plugin.names[name], activeLayer = rightLayer, bgColor = RIGHTBGCOLOR))
 					plugin.areaCache['right'] = areas
 
-				plugin.areas.append(plugin.areaCache['right'])
+				font.tempData()['spaceBarAreas'].append(plugin.areaCache['right'])
 
 
 			calcTime = time.time() - calcTime
 
 
 
-		for i, subAreas in enumerate(plugin.areas):
+		for i, subAreas in enumerate(font.tempData()['spaceBarAreas']):
 			for area in subAreas:
 				display.addArea(area)
-			if i < len(plugin.areas) - 1:
+			if i < len(font.tempData()['spaceBarAreas']) - 1:
 				display.addArea(Area(10, 0))
 
 		drawTime = time.time()
@@ -1562,6 +1568,7 @@ def start(plugin):
 def mouse(plugin, info):
 
 	tab = Glyphs.font.currentTab
+	font = Glyphs.font
 	
 	tabHeight = tab.previewHeight
 	if tabHeight > 0:
@@ -1570,9 +1577,10 @@ def mouse(plugin, info):
 	mousePosition = info.object().locationInWindow()
 	mousePosition = NSPoint(mousePosition.x + tab.viewPort.origin.x, mousePosition.y + tab.viewPort.origin.y - tab.bottomToolbarHeight - tabHeight)
 
-	for a in plugin.areas:
-		for area in a:
-			area.mouseOver(mousePosition)
+	if font and font.tempData().has_key('spaceBarAreas'):
+		for a in font.tempData()['spaceBarAreas']:
+			for area in a:
+				area.mouseOver(mousePosition)
 
 
 
