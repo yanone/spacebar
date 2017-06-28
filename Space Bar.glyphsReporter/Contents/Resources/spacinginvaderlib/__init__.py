@@ -1057,27 +1057,27 @@ def addValues(plugin, action, layers, layersWithoutDeviations, masterValues, dis
 
 
 def getKerning(master, leftGlyph, rightGlyph):
-    font = leftGlyph.parent
-    _kerning = font.kerningForPair(master.id, leftGlyph.rightKerningKey, rightGlyph.leftKerningKey)
-    kerningExceptionLeft = font.kerningForPair(master.id, leftGlyph.name, rightGlyph.rightKerningKey)
-    kerningExceptionRight = font.kerningForPair(master.id, leftGlyph.rightKerningKey, rightGlyph.name)
-    kerningExceptionBoth = font.kerningForPair(master.id, leftGlyph.name, rightGlyph.name)
-    exception = False
-    if _kerning > 1000000000:
-        _kerning = 0
-    if kerningExceptionLeft < 1000000000:
-        _kerning = kerningExceptionLeft
-        exception = True
-    if kerningExceptionRight < 1000000000:
-        _kerning = kerningExceptionRight
-        exception = True
-    if kerningExceptionBoth < 1000000000:
-        _kerning = kerningExceptionBoth
-        exception = True
-    return (_kerning, exception)
+	font = leftGlyph.parent
+	_kerning = font.kerningForPair(master.id, leftGlyph.rightKerningKey, rightGlyph.leftKerningKey)
+	kerningExceptionLeft = font.kerningForPair(master.id, leftGlyph.name, rightGlyph.rightKerningKey)
+	kerningExceptionRight = font.kerningForPair(master.id, leftGlyph.rightKerningKey, rightGlyph.name)
+	kerningExceptionBoth = font.kerningForPair(master.id, leftGlyph.name, rightGlyph.name)
+	exception = False
+	if _kerning > 1000000000:
+		_kerning = 0
+	if kerningExceptionLeft < 1000000000:
+		_kerning = kerningExceptionLeft
+		exception = True
+	if kerningExceptionRight < 1000000000:
+		_kerning = kerningExceptionRight
+		exception = True
+	if kerningExceptionBoth < 1000000000:
+		_kerning = kerningExceptionBoth
+		exception = True
+	return (_kerning, exception)
 
 
-def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activeLayer):
+def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activeLayer, writingDirection):
 
 	font = leftGlyph.parent
 
@@ -1131,7 +1131,12 @@ def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activ
 						b = instance.interpolatedFontProxy.glyphForName_(rightGlyph.name)
 						masterID = instance.interpolatedFontProxy.fontMasterAtIndex_(0).valueForKey_("id")
 
-						sbValue = instance.interpolatedFontProxy.kerningForFontMasterID_firstGlyph_secondGlyph_(masterID, a, b)
+#						print hasattr(instance.interpolatedFontProxy, 'kerningForFontMasterID_firstGlyph_secondGlyph_')
+#						print hasattr(instance.interpolatedFontProxy, 'kerningForFontMasterID_LeftKey_RightKey_direction_')
+#						print hasattr(instance.interpolatedFontProxy, 'kerningForFontMasterID_firstGlyph_secondGlyph_direction_')
+
+
+						sbValue = instance.interpolatedFontProxy.kerningForFontMasterID_firstGlyph_secondGlyph_direction_(masterID, a, b, writingDirection)
 						if sbValue > 9999999999999:
 							sbValue = 0
 						value = Value(instanceCount, sbValue)
@@ -1219,10 +1224,12 @@ def foreground(plugin, layer):
 
 	try:
 
+
+
 		calcTime = time.time()
 
-		font = layer.parent.parent
 		layer = plugin.controller.graphicView().activeLayer()
+		font = layer.parent.parent
 
 #		if not font.tempData().has_key('spaceBarTab'):
 #			font.tempData()['spaceBarTab'] = font.currentTab
@@ -1242,7 +1249,7 @@ def foreground(plugin, layer):
 			plugin.tabLayers = tab.composedLayers
 		textCursor = tab.textCursor
 
-		print plugin.controller
+#		print font#tab, tab.graphicView()
 
 		if font.tool == 'TextTool' or font.tool == 'SelectTool':
 
@@ -1309,6 +1316,8 @@ def foreground(plugin, layer):
 			leftLayer = None
 			rightLayer = None
 
+			buildNumber = Glyphs.buildNumber
+
 			cachedGlyphs = tab.graphicView().layoutManager().cachedGlyphs()
 
 			# Catch left and right glyphs
@@ -1348,11 +1357,11 @@ def foreground(plugin, layer):
 					for instance in font.instances:
 
 						if instance.showInPanel(plugin):
-							proxy = instance.interpolatedFontProxy
-							if proxy and instance.showInPanel(plugin):
-	#							layer = leftGlyph.interpolate_decompose_error_(instance, True, None)
-								layer = proxy.glyphForName_(leftGlyph.name).layers[0]
-								layer.updateMetricsAndNotify_(False)
+							if instance.showInPanel(plugin):
+								if hasattr(leftGlyph, 'interpolate_decompose_error_'):
+									layer = leftGlyph.interpolate_decompose_error_(instance, True, None)
+								elif hasattr(leftGlyph, 'interpolate_keepSmart_error_'):
+									layer = leftGlyph.interpolate_keepSmart_error_(instance, True, None)
 								leftLayers.append((instanceCount, instance, layer))
 								instanceCount += 1
 
@@ -1374,8 +1383,12 @@ def foreground(plugin, layer):
 							layer.decomposeComponents()
 						for instance in font.instances:
 							if instance.showInPanel(plugin):
-								layer = glyph.interpolate_decompose_error_(instance, True, None)
-								leftLayersWithoutDeviations.append(layer)
+								if instance.showInPanel(plugin):
+									if hasattr(glyph, 'interpolate_decompose_error_'):
+										layer = glyph.interpolate_decompose_error_(instance, True, None)
+									elif hasattr(glyph, 'interpolate_keepSmart_error_'):
+										layer = glyph.interpolate_keepSmart_error_(instance, True, None)
+									leftLayersWithoutDeviations.append(layer)
 
 
 
@@ -1429,7 +1442,7 @@ def foreground(plugin, layer):
 
 			# Kerning
 			if leftGlyph and rightGlyph and plugin.getPreference('kerning'):
-				font.tempData()['spaceBarAreas'].append([addKerning(display, plugin, leftGlyph, rightGlyph, mode, plugin.masterValues, activeLayer = leftLayer)])
+				font.tempData()['spaceBarAreas'].append([addKerning(display, plugin, leftGlyph, rightGlyph, mode, plugin.masterValues, activeLayer = leftLayer, writingDirection = tab.direction)])
 
 
 			# Right Glyph
@@ -1446,11 +1459,11 @@ def foreground(plugin, layer):
 					for instance in font.instances:
 
 						if instance.showInPanel(plugin):
-							proxy = instance.interpolatedFontProxy
-							if proxy and instance.showInPanel(plugin):
-#								layer = rightGlyph.interpolate_decompose_error_(instance, True, None)
-								layer = proxy.glyphForName_(rightGlyph.name).layers[0]
-								layer.updateMetricsAndNotify_(False)
+							if instance.showInPanel(plugin):
+								if hasattr(rightGlyph, 'interpolate_decompose_error_'):
+									layer = rightGlyph.interpolate_decompose_error_(instance, True, None)
+								elif hasattr(rightGlyph, 'interpolate_keepSmart_error_'):
+									layer = rightGlyph.interpolate_keepSmart_error_(instance, True, None)
 								rightLayers.append((instanceCount, instance, layer))
 								instanceCount += 1
 
@@ -1472,8 +1485,12 @@ def foreground(plugin, layer):
 							layer.decomposeComponents()
 						for instance in font.instances:
 							if instance.showInPanel(plugin):
-								layer = glyph.interpolate_decompose_error_(instance, True, None)
-								rightLayersWithoutDeviations.append(layer)
+								if instance.showInPanel(plugin):
+									if hasattr(glyph, 'interpolate_decompose_error_'):
+										layer = glyph.interpolate_decompose_error_(instance, True, None)
+									elif hasattr(glyph, 'interpolate_keepSmart_error_'):
+										layer = glyph.interpolate_keepSmart_error_(instance, True, None)
+									rightLayersWithoutDeviations.append(layer)
 
 					# Add brace layers to masters
 					masterValues = copy.copy(plugin.masterValues)
@@ -1730,42 +1747,42 @@ class SpacingInvader(ReporterPlugin):
 				Glyphs.defaults[self.trialKey] = int(time.time())
 
 				Message(Glyphs.localize({
-		        'en': u'Welcome to Space Bar %s' % VERSION,
-		        'de': u'Willkommen zu Space Bar %s' % VERSION,
+				'en': u'Welcome to Space Bar %s' % VERSION,
+				'de': u'Willkommen zu Space Bar %s' % VERSION,
 				}),
 				Glyphs.localize({
-			        'en': u'Your %s-day trial period of Space Bar has started. You’ll find me in the View menu under ‘Show Space Bar’.\nTo learn more about Space Bar, please visit\nhttps://yanone.de/software/spacebar/' % self.trialPeriod,
-			        'de': u'Deine %s-Tage-Testperiode von Space Bar hat begonnen. Du findest mich im Ansicht-Menü unter ‘Space Bar anzeigen’.\nMehr über Space Bar erfährst Du hier:\nhttps://yanone.de/software/spacebar/' % self.trialPeriod,
+					'en': u'Your %s-day trial period of Space Bar has started. You’ll find me in the View menu under ‘Show Space Bar’.\nTo learn more about Space Bar, please visit\nhttps://yanone.de/software/spacebar/' % self.trialPeriod,
+					'de': u'Deine %s-Tage-Testperiode von Space Bar hat begonnen. Du findest mich im Ansicht-Menü unter ‘Space Bar anzeigen’.\nMehr über Space Bar erfährst Du hier:\nhttps://yanone.de/software/spacebar/' % self.trialPeriod,
 				}))
 
 
 			if 0 < self.trialDaysLeft() <= self.trialPeriod:
 
 				Glyphs.showNotification(Glyphs.localize({
-			        'en':  'Space Bar trial period',
-			        'de': u'Space Bar Testperiode',
+					'en':  'Space Bar trial period',
+					'de': u'Space Bar Testperiode',
 				}), Glyphs.localize({
-			        'en':  '%s days left' % self.trialDaysLeft(),
-			        'de': u'Noch %s Tage übrig' % self.trialDaysLeft(),
+					'en':  '%s days left' % self.trialDaysLeft(),
+					'de': u'Noch %s Tage übrig' % self.trialDaysLeft(),
 				}))
 
 			elif self.trialDaysLeft() <= 0:
 				Message(Glyphs.localize({
-			        'en':  'Space Bar trial period',
-			        'de': u'Space Bar Testperiode',
+					'en':  'Space Bar trial period',
+					'de': u'Space Bar Testperiode',
 				}),
 				Glyphs.localize({
-			        'en':  'Your %s-day trial period of Space Bar has expired.\nPlease hop over to https://yanone.de/buy/software/ to purchase the plug-in for just 20 EUR (15 EUR for students).' % self.trialPeriod,
-			        'de': u'Deine %s-Tage-Testperiode von Space Bar ist abgelaufen.\nAuf https://yanone.de/buy/software/\nkannst Du das Plug-In für nur 20 EUR (15 EUR für Studenten) erwerben.' % self.trialPeriod,
+					'en':  'Your %s-day trial period of Space Bar has expired.\nPlease hop over to https://yanone.de/buy/software/ to purchase the plug-in for just 20 EUR (15 EUR for students).' % self.trialPeriod,
+					'de': u'Deine %s-Tage-Testperiode von Space Bar ist abgelaufen.\nAuf https://yanone.de/buy/software/\nkannst Du das Plug-In für nur 20 EUR (15 EUR für Studenten) erwerben.' % self.trialPeriod,
 				}))
 
 		if justInstalled and self.trial == False and environment == 'GlyphsApp':
 			Message(Glyphs.localize({
-		        'en': u'Welcome to Space Bar %s' % VERSION,
-		        'de': u'Willkommen zu Space Bar %s' % VERSION,
+				'en': u'Welcome to Space Bar %s' % VERSION,
+				'de': u'Willkommen zu Space Bar %s' % VERSION,
 			}), Glyphs.localize({
-		        'en': u'Thank you for choosing Space Bar. You’ll find me in the View menu under ‘Show Space Bar’. Enjoy and make sure to follow @yanone on Twitter.',
-		        'de': u'Danke zur Wahl von Space Bar. Du findest mich im Ansicht-Menü unter ‘Space Bar anzeigen’. Viel Spaß und wir sehen uns bei @yanone auf Twitter.',
+				'en': u'Thank you for choosing Space Bar. You’ll find me in the View menu under ‘Show Space Bar’. Enjoy and make sure to follow @yanone on Twitter.',
+				'de': u'Danke zur Wahl von Space Bar. Du findest mich im Ansicht-Menü unter ‘Space Bar anzeigen’. Viel Spaß und wir sehen uns bei @yanone auf Twitter.',
 			})
 			)
 
