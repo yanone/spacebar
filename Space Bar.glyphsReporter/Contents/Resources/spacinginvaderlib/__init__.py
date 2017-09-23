@@ -364,7 +364,7 @@ class Area(object):
 	def drawingArea(self):
 
 		left, bottom, width, height = self.position()
-		top = bottom + height
+#		top = bottom + height
 
 		factor = 3
 
@@ -380,7 +380,7 @@ class Area(object):
 	def position(self):
 
 		bottom = self.top - self.height()
-		top = bottom + self.height()
+#		top = bottom + self.height()
 		width = int(self.w * self.widthAdjust)
 		height = self.height()
 
@@ -495,7 +495,7 @@ class Area(object):
 		else:
 
 
-			lastDot = None
+#			lastDot = None
 
 			dots = []
 
@@ -510,9 +510,9 @@ class Area(object):
 					xMedian = xMedian / xScopeAdjust
 
 				yScopeAdjust = 1.0
-				yMedian = 0
+#				yMedian = 0
 				if self.yScope > 0:
-					yMedian = self.yMin + self.yScope / 2.0
+#					yMedian = self.yMin + self.yScope / 2.0
 					if self.yScope > height:
 						yScopeAdjust = height / float(self.yScope)
 
@@ -688,7 +688,7 @@ class Display(object):
 				height = self.areas[0].height() + 2 * PAGEMARGIN
 				NSBezierPath.fillRect_(NSRect(NSPoint(leftBorder, Glyphs.font.currentTab.viewPort.origin.y + Glyphs.font.currentTab.viewPort.size.height - height), NSPoint(width, height)))
 
-				x = tab.viewPort.origin.x + (tabViewPortSize.width / 2.0 - widthSum / 2.0) * widthAdjust
+#				x = tab.viewPort.origin.x + (tabViewPortSize.width / 2.0 - widthSum / 2.0) * widthAdjust
 
 				left = 0
 				for area in self.areas:
@@ -726,7 +726,7 @@ def drawValuesInInterpolationSpace(font, display, area, masterLayers, positiveCo
 	# Draw masters
 
 	layersDrawn = []
-	masterDots = []
+#	masterDots = []
 	layersToDots = {}
 
 	for weightValue, layer, interpolatedValue in masterLayers:
@@ -747,7 +747,7 @@ def drawValuesInInterpolationSpace(font, display, area, masterLayers, positiveCo
 
 					area.addValue(value)
 					layersDrawn.append(layer)
-					masterDots = value
+#					masterDots = value
 					layersToDots[layer] = value
 
 			for i in range(len(font.instances)-1):
@@ -976,10 +976,10 @@ def addValues(plugin, action, layers, layersWithoutDeviations, masterValues, dis
 
 	elif mode == 'instances':
 
-		instanceMasters = [x[0] for x in layers[0][1].sortedInterpolationValues]
+#		instanceMasters = [x[0] for x in layers[0][1].sortedInterpolationValues]
 
 
-		mastersAdded = []
+#		mastersAdded = []
 
 		for instanceCount, instance, layer in layers:
 
