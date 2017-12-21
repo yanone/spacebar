@@ -658,13 +658,13 @@ class Display(object):
 			widthAdjust = (tabViewPortSize.width - 2*PAGEMARGIN) / float(widthSum)
 			widthSum *= widthAdjust
 
-#		print 'widthAdjust', widthAdjust
 
 		if ORIGIN == 'top':
 			top = tab.viewPort.origin.y + tabViewPortSize.height - PAGEMARGIN
 			
 			width = tabViewPortSize.width
-			leftBorder = tab.viewPort.origin.x + width / 2.0 - widthSum / 2.0
+			leftBorder = int(tab.viewPort.origin.x + width / 2.0 - widthSum / 2.0)
+#			print leftBorder
 
 			# Draw a blue rectangle all across the Edit View's visible area
 #			NSColor.blueColor().set()
@@ -697,8 +697,12 @@ class Display(object):
 					area.widthAdjust = widthAdjust
 					area.draw(font)
 
+
 					#top += area.height() + AREAOUTERMARGIN
 					left += area.w * widthAdjust + AREAOUTERMARGIN
+#					left -= left % 2
+#					left += 2
+
 
 
 
@@ -707,7 +711,7 @@ class Display(object):
 
 		if ORIGIN == 'bottom':
 			top = tab.viewPort.origin.y + PAGEMARGIN + self.areas[0].height()
-			left = tab.viewPort.origin.x + tab.viewPort.size.width / 2.0 - (widthSum - (len(self.areas) - 1) * AREAOUTERMARGIN) / 2.0
+			left = int(tab.viewPort.origin.x + tab.viewPort.size.width / 2.0 - (widthSum - (len(self.areas) - 1) * AREAOUTERMARGIN) / 2.0)
 
 			for area in self.areas:
 				area.top = top
@@ -993,6 +997,7 @@ def addValues(plugin, action, layers, layersWithoutDeviations, masterValues, dis
 					sbValue = layer.RSB
 					if layersWithoutDeviations:
 						sbValue2 = layersWithoutDeviations[instanceCount].RSB
+#					print sbValue
 			elif action == 'width':
 				sbValue = layer.width
 				if layersWithoutDeviations:
@@ -1316,7 +1321,7 @@ def foreground(plugin, layer):
 			leftLayer = None
 			rightLayer = None
 
-			buildNumber = Glyphs.buildNumber
+#			buildNumber = Glyphs.buildNumber
 
 			cachedGlyphs = tab.graphicView().layoutManager().cachedGlyphs()
 
@@ -1358,10 +1363,13 @@ def foreground(plugin, layer):
 
 						if instance.showInPanel(plugin):
 							if instance.showInPanel(plugin):
-								if hasattr(leftGlyph, 'interpolate_decompose_error_'):
-									layer = leftGlyph.interpolate_decompose_error_(instance, True, None)
-								elif hasattr(leftGlyph, 'interpolate_keepSmart_error_'):
-									layer = leftGlyph.interpolate_keepSmart_error_(instance, True, None)
+								if Glyphs.buildNumber >= 1056:
+									layer = instance.interpolatedFontProxy.glyphForName_(leftGlyph.name).layerForKey_(instance.interpolatedFontProxy.fontMasterID())
+								else:
+									if hasattr(leftGlyph, 'interpolate_decompose_error_'):
+										layer = leftGlyph.interpolate_decompose_error_(instance, True, None)
+									elif hasattr(leftGlyph, 'interpolate_keepSmart_error_'):
+										layer = leftGlyph.interpolate_keepSmart_error_(instance, True, None)
 								leftLayers.append((instanceCount, instance, layer))
 								instanceCount += 1
 
@@ -1458,12 +1466,16 @@ def foreground(plugin, layer):
 					instanceCount = 0
 					for instance in font.instances:
 
+
 						if instance.showInPanel(plugin):
 							if instance.showInPanel(plugin):
-								if hasattr(rightGlyph, 'interpolate_decompose_error_'):
-									layer = rightGlyph.interpolate_decompose_error_(instance, True, None)
-								elif hasattr(rightGlyph, 'interpolate_keepSmart_error_'):
-									layer = rightGlyph.interpolate_keepSmart_error_(instance, True, None)
+								if Glyphs.buildNumber >= 1056:
+									layer = instance.interpolatedFontProxy.glyphForName_(rightGlyph.name).layerForKey_(instance.interpolatedFontProxy.fontMasterID())
+								else:
+									if hasattr(rightGlyph, 'interpolate_keepSmart_error_'):
+										layer = rightGlyph.interpolate_keepSmart_error_(instance, True, None)
+									elif hasattr(rightGlyph, 'interpolate_decompose_error_'):
+										layer = rightGlyph.interpolate_decompose_error_(instance, True, None)
 								rightLayers.append((instanceCount, instance, layer))
 								instanceCount += 1
 

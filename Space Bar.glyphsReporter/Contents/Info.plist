@@ -19,9 +19,9 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.01</string>
+	<string>1.02</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.01</string>
+	<string>1.02</string>
 	<key>UpdateFeedURL</key>
 	<string>https://yanone.de/buy/?page=versionInformation&amp;product=spacebarglyphs&amp;format=GlyphsInfoPlist</string>
 	<key>productPageURL</key>
