@@ -1706,8 +1706,8 @@ class SpacingInvader(ReporterPlugin):
 				'de': u'Willkommen zu Space Bar %s' % VERSION,
 				}),
 				Glyphs.localize({
-					'en': u'Your %s-day trial period of Space Bar has started. You’ll find me in the View menu under ‘Show Space Bar’.\nTo learn more about Space Bar, please visit\nhttps://yanone.de/software/spacebar/' % self.trialPeriod,
-					'de': u'Deine %s-Tage-Testperiode von Space Bar hat begonnen. Du findest mich im Ansicht-Menü unter ‘Space Bar anzeigen’.\nMehr über Space Bar erfährst Du hier:\nhttps://yanone.de/software/spacebar/' % self.trialPeriod,
+					'en': u'Your %s-day trial period of Space Bar has started. You’ll find me in the View menu under ‘Show Space Bar’.\nTo learn more about Space Bar, please visit\nhttps://yanone.de/software/spacebar/.\n\nEnjoy and make sure to follow @yanone on Twitter.' % self.trialPeriod,
+					'de': u'Deine %s-Tage-Testperiode von Space Bar hat begonnen. Du findest mich im Ansicht-Menü unter ‘Space Bar anzeigen’.\nMehr über Space Bar erfährst Du hier:\nhttps://yanone.de/software/spacebar/.\n\nViel Spaß und wir sehen uns bei @yanone auf Twitter.' % self.trialPeriod,
 				}))
 
 
@@ -1736,8 +1736,8 @@ class SpacingInvader(ReporterPlugin):
 				'en': u'Welcome to Space Bar %s' % VERSION,
 				'de': u'Willkommen zu Space Bar %s' % VERSION,
 			}), Glyphs.localize({
-				'en': u'Thank you for choosing Space Bar. You’ll find me in the View menu under ‘Show Space Bar’. Enjoy and make sure to follow @yanone on Twitter.',
-				'de': u'Danke zur Wahl von Space Bar. Du findest mich im Ansicht-Menü unter ‘Space Bar anzeigen’. Viel Spaß und wir sehen uns bei @yanone auf Twitter.',
+				'en': u'Thank you for choosing Space Bar. You’ll find me in the View menu under ‘Show Space Bar’.\n\nEnjoy and make sure to follow @yanone on Twitter.',
+				'de': u'Danke zur Wahl von Space Bar. Du findest mich im Ansicht-Menü unter ‘Space Bar anzeigen’.\n\nViel Spaß und wir sehen uns bei @yanone auf Twitter.',
 			})
 			)
 
