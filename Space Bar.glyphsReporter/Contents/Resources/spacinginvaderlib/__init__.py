@@ -1975,8 +1975,9 @@ class SpacingInvader(ReporterPlugin):
 		spacinginvaderlib.start(self)
 
 	def foregroundInViewCoords(self, layer):
-		if layer != None:
-			spacinginvaderlib.foreground(self, layer)
+		if self.allowed():
+			if layer != None:
+				spacinginvaderlib.foreground(self, layer)
 #		cProfile.runctx('foreground(self, layer)', globals(), locals())
 
 
