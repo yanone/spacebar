@@ -3,10 +3,9 @@
 
 
 import copy, traceback, time, os
-from GlyphsApp import GSGlyph, GSFont, GSInstance, GSLayer
-from GlyphsApp import *
+from GlyphsApp import Glyphs, GSGlyph, GSFont, GSInstance, MOUSEMOVED, RTL, Message
 import GlyphsApp.plugins
-from AppKit import NSBezierPath, NSPoint, NSColor, NSString, NSRect, NSHomeDirectory, NSView, NSImage, NSSize, NSZeroRect, NSCompositeCopy, NSCompositeSourceOver, NSMenuItem, NSMenu, NSOnState, NSOffState, NSMixedState, NSWorkspace, NSURL, NSBundle
+from AppKit import NSBezierPath, NSPoint, NSColor, NSRect, NSHomeDirectory, NSImage, NSSize, NSZeroRect, NSCompositeSourceOver, NSMenuItem, NSMenu, NSWorkspace, NSURL, NSBundle, NSOnState
 import plistlib
 
 plist = plistlib.readPlist(os.path.join(os.path.dirname(__file__), '..', '..', 'Info.plist'))
@@ -1142,6 +1141,7 @@ def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activ
 
 
 						sbValue = instance.interpolatedFontProxy.kerningForFontMasterID_firstGlyph_secondGlyph_direction_(masterID, a, b, writingDirection)
+						print sbValue
 						if sbValue > 9999999999999:
 							sbValue = 0
 						value = Value(instanceCount, sbValue)
@@ -1343,7 +1343,7 @@ def foreground(plugin, layer):
 				leftLayer, rightLayer = rightLayer, leftLayer
 
 
-			preferencesString = str([plugin.getPreference(x) for x in plugin.names.keys()])
+			preferencesString = str([plugin.getPreference(z) for z in plugin.names.keys()])
 
 
 			# Left Glyph
@@ -1622,11 +1622,8 @@ def mouse(plugin, info):
 
 import spacinginvaderlib
 from GlyphsApp.plugins import ReporterPlugin
-from vanilla import *
 
-from GlyphsApp import *
 from AppKit import NSUserDefaults, NSHomeDirectory
-import copy, traceback, time
 
 
 class SpacingInvader(ReporterPlugin):
@@ -1637,7 +1634,7 @@ class SpacingInvader(ReporterPlugin):
 		self.areas = []
 
 		margin = 20
-		innerMargin = 5
+#		innerMargin = 5
 		column = 120
 		elementHeight = 20
 		y = margin / 2.0
@@ -1683,64 +1680,10 @@ class SpacingInvader(ReporterPlugin):
 			'onlyActiveInstances': Glyphs.localize({'en': u'Only active', 'de': 'Nur aktive'}),
 		}
 
-		# Create Vanilla window and group with controls
-		viewWidth = 3 * column + 2* margin
-		viewHeight = 80
-		self.sliderMenuView = Window((viewWidth, viewHeight))
-		self.sliderMenuView.group = Group((0, 0, viewWidth, viewHeight))
-
-#		self.sliderMenuView.group.line1 = HorizontalLine((1, 1, -1, 1))
-
-		self.sliderMenuView.group.text = TextBox((margin, y, -margin, elementHeight), '%s %s' % (self.menuName, VERSION), sizeStyle = 'small')
-		y += elementHeight
-		top = y
-
-		# Mode
-		self.sliderMenuView.group.modeSettingsRadioGroup = RadioGroup((margin, y, -margin, len(self.modeSettings) * elementHeight - 3),
-			[x[1] for x in self.modeSettings], callback=self.modeCallback, sizeStyle = 'small')
-		y += len(self.modeSettings) * elementHeight
-		self.sliderMenuView.group.modeSettingsRadioGroup.set([x[0] for x in self.modeSettings].index(self.getPreference('mode')))
-
-		self.sliderMenuView.group.onlyActiveInstancesCheckBox = CheckBox((margin + 3, y, column, 3*elementHeight), self.names['onlyActiveInstances'], callback=self.onlyActiveInstancesCallback, value=self.getPreference('onlyActiveInstances'), sizeStyle = 'small')
-
-		y = top
-		left = margin + column
-
-		# Metrics
-		self.sliderMenuView.group.showSpacingCheckBox = CheckBox((left, y, column, elementHeight), self.names['sidebearings'], callback=self.sidebearingsCallback, value=self.getPreference('sidebearings'), sizeStyle = 'small')
-		y += elementHeight
-		self.sliderMenuView.group.showWidthCheckBox = CheckBox((left, y, column, elementHeight), self.names['width'], callback=self.widthCallback, value=self.getPreference('width'), sizeStyle = 'small')
-		y += elementHeight
-
-		# BBOX
-		self.sliderMenuView.group.showBboxwidthCheckBox = CheckBox((left, y, column, elementHeight), self.names['bboxw'], callback=self.bboxwCallback, value=self.getPreference('bboxw'), sizeStyle = 'small')
-		y += elementHeight
-		self.sliderMenuView.group.showBboxheightCheckBox = CheckBox((left, y, column, elementHeight), self.names['bboxh'], callback=self.bboxhCallback, value=self.getPreference('bboxh'), sizeStyle = 'small')
-		y += elementHeight
-		self.sliderMenuView.group.showBboxhighestCheckBox = CheckBox((left, y, column, elementHeight), self.names['bboxt'], callback=self.bboxtCallback, value=self.getPreference('bboxt'), sizeStyle = 'small')
-		y += elementHeight
-		self.sliderMenuView.group.showBboxlowestCheckBox = CheckBox((left, y, column, elementHeight), self.names['bboxb'], callback=self.bboxbCallback, value=self.getPreference('bboxb'), sizeStyle = 'small')
-		y += elementHeight
-		self.sliderMenuView.group.resize(viewWidth, y + margin)
-
-		left = margin + 2*column
-
-		y = top
-		self.sliderMenuView.group.showInterpolationCheckBox = CheckBox((left, y, column, elementHeight), self.names['interpolation'], callback=self.interpolationCallback, value=self.getPreference('interpolation'), sizeStyle = 'small')
-		y += elementHeight
-		self.sliderMenuView.group.showKerningCheckBox = CheckBox((left, y, column, elementHeight), self.names['kerning'], callback=self.kerningCallback, value=self.getPreference('kerning'), sizeStyle = 'small')
-		y += elementHeight
-
-
-
 
 		# Define the menu
 		self.generalContextMenus = []
 
-		if not hasattr(GlyphsApp.plugins, 'USESELFCREATEDNSMENUITEMS') or GlyphsApp.plugins.USESELFCREATEDNSMENUITEMS == False:
-			self.generalContextMenus.append(
-			{"view": self.sliderMenuView.group.getNSView()},
-		)
 		if NSHomeDirectory() == '/Users/yanone':
 			self.generalContextMenus.append(
 				{"name": "Reload Space Bar", "action": self.reloadLib}
@@ -1788,7 +1731,7 @@ class SpacingInvader(ReporterPlugin):
 					'de': u'Deine %s-Tage-Testperiode von Space Bar ist abgelaufen.\nAuf https://yanone.de/buy/software/\nkannst Du das Plug-In für nur 20 EUR (15 EUR für Studenten) erwerben.' % self.trialPeriod,
 				}))
 
-		if justInstalled and self.trial == False and environment == 'GlyphsApp':
+		if justInstalled and self.trial == False:
 			Message(Glyphs.localize({
 				'en': u'Welcome to Space Bar %s' % VERSION,
 				'de': u'Willkommen zu Space Bar %s' % VERSION,
