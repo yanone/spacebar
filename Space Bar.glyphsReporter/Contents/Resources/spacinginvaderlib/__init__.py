@@ -1268,46 +1268,48 @@ def foreground(plugin, layer):
 
 				plugin.masterValues = []
 				mastersAdded = []
-				instanceMasters = [x[0] for x in font.instances[0].sortedInterpolationValues]
-				instanceCount = 0
+
+				if font.instances:
+					instanceMasters = [x[0] for x in font.instances[0].sortedInterpolationValues]
+					instanceCount = 0
 
 
-				for instance in font.instances:
+					for instance in font.instances:
 
-					if instance.showInPanel(plugin):
+						if instance.showInPanel(plugin):
 
-						for master in font.masters:
-							if len(instance.instanceInterpolations.keys()) == 1 and master.id == instance.instanceInterpolations.keys()[0]:
+							for master in font.masters:
+								if len(instance.instanceInterpolations.keys()) == 1 and master.id == instance.instanceInterpolations.keys()[0]:
 
-								if activeInstances[0].weightValue <= master.weightValue <= activeInstances[-1].weightValue:
-									mastersAdded.append(master)
+									if activeInstances[0].weightValue <= master.weightValue <= activeInstances[-1].weightValue:
+										mastersAdded.append(master)
 
-									value = Value(instanceCount, 0)
+										value = Value(instanceCount, 0)
+										value.size = UNSELECTEDMASTERSIZE
+										value.color = UNSELECTEDMASTERCOLOR
+										value.layer = 'background'
+										value.associatedObject = master
+										plugin.masterValues.append(value)
+								#		instanceCount += 1
+
+							newInstanceMasters = [x[0] for x in instance.sortedInterpolationValues]
+
+							if not newInstanceMasters[0] in mastersAdded and len(newInstanceMasters) == 2 and instanceMasters != newInstanceMasters:
+								
+								if activeInstances[0].weightValue <= newInstanceMasters[0].weightValue <= activeInstances[-1].weightValue:
+									mastersAdded.append(newInstanceMasters[0])
+
+									x = instanceCount - .5
+									y = 0
+									instanceMasters = newInstanceMasters
+
+									value = Value(x, y)
 									value.size = UNSELECTEDMASTERSIZE
 									value.color = UNSELECTEDMASTERCOLOR
 									value.layer = 'background'
-									value.associatedObject = master
+									value.associatedObject = newInstanceMasters[0]
 									plugin.masterValues.append(value)
-							#		instanceCount += 1
-
-						newInstanceMasters = [x[0] for x in instance.sortedInterpolationValues]
-
-						if not newInstanceMasters[0] in mastersAdded and len(newInstanceMasters) == 2 and instanceMasters != newInstanceMasters:
-							
-							if activeInstances[0].weightValue <= newInstanceMasters[0].weightValue <= activeInstances[-1].weightValue:
-								mastersAdded.append(newInstanceMasters[0])
-
-								x = instanceCount - .5
-								y = 0
-								instanceMasters = newInstanceMasters
-
-								value = Value(x, y)
-								value.size = UNSELECTEDMASTERSIZE
-								value.color = UNSELECTEDMASTERCOLOR
-								value.layer = 'background'
-								value.associatedObject = newInstanceMasters[0]
-								plugin.masterValues.append(value)
-						instanceCount += 1
+							instanceCount += 1
 
 
 
