@@ -640,85 +640,86 @@ class Display(object):
 
 		tab = font.currentTab
 
+		if tab:
 
-		widthSum = 0
-		heightSum = 0
+			widthSum = 0
+			heightSum = 0
 
-		tabViewPortSize = tab.viewPort.size
-
-		for area in self.areas:
-			widthSum += area.w
-			heightSum += area.height()
-
-		widthSum += (len(self.areas) - 1) * AREAOUTERMARGIN
-
-		widthAdjust = 1.0
-		if widthSum + 2*PAGEMARGIN > tabViewPortSize.width:
-			widthAdjust = (tabViewPortSize.width - 2*PAGEMARGIN) / float(widthSum)
-			widthSum *= widthAdjust
-
-
-		if ORIGIN == 'top':
-			top = tab.viewPort.origin.y + tabViewPortSize.height - PAGEMARGIN
-			
-			width = tabViewPortSize.width
-			leftBorder = int(tab.viewPort.origin.x + width / 2.0 - widthSum / 2.0)
-#			print leftBorder
-
-			# Draw a blue rectangle all across the Edit View's visible area
-#			NSColor.blueColor().set()
-#			NSBezierPath.strokeRect_(NSRect(NSPoint(leftBorder, Glyphs.font.currentTab.viewPort.origin.y), NSPoint(width, Glyphs.font.currentTab.viewPort.size.height)))
-
-
-			# Draw a blue rectangle all across the Edit View's visible area
-#			NSColor.blueColor().set()
-#			NSBezierPath.strokeRect_(NSRect(NSPoint(leftBorder, Glyphs.font.currentTab.viewPort.origin.y), NSPoint(width, Glyphs.font.currentTab.viewPort.size.height)))
-
-			# Draw a blue rectangle all across the Edit View's visible area
-#			NSColor.blueColor().set()
-#			NSBezierPath.strokeRect_(NSRect(NSPoint(leftBorder, top - self.areas[0].height()), NSPoint(widthSum, self.areas[0].height())))
-
-
-
-			# Draw a white rectangle all across the Edit View's visible area
-			#NSColor.whiteColor().set()
-			NSColor.colorWithDeviceRed_green_blue_alpha_(1, 1, 1, .95).set()
-			if len(self.areas):
-				height = self.areas[0].height() + 2 * PAGEMARGIN
-				NSBezierPath.fillRect_(NSRect(NSPoint(leftBorder, Glyphs.font.currentTab.viewPort.origin.y + Glyphs.font.currentTab.viewPort.size.height - height), NSPoint(width, height)))
-
-#				x = tab.viewPort.origin.x + (tabViewPortSize.width / 2.0 - widthSum / 2.0) * widthAdjust
-
-				left = 0
-				for area in self.areas:
-					area.top = top
-					area.left = leftBorder + left
-					area.widthAdjust = widthAdjust
-					area.draw(font)
-
-
-					#top += area.height() + AREAOUTERMARGIN
-					left += area.w * widthAdjust + AREAOUTERMARGIN
-#					left -= left % 2
-#					left += 2
-
-
-
-
-
-
-
-		if ORIGIN == 'bottom':
-			top = tab.viewPort.origin.y + PAGEMARGIN + self.areas[0].height()
-			left = int(tab.viewPort.origin.x + tab.viewPort.size.width / 2.0 - (widthSum - (len(self.areas) - 1) * AREAOUTERMARGIN) / 2.0)
+			tabViewPortSize = tab.viewPort.size
 
 			for area in self.areas:
-				area.top = top
-				area.left = left
-				area.draw()
+				widthSum += area.w
+				heightSum += area.height()
 
-				#top += area.height() + AREAOUTERMARGIN
-				left += area.w + AREAOUTERMARGIN
+			widthSum += (len(self.areas) - 1) * AREAOUTERMARGIN
+
+			widthAdjust = 1.0
+			if widthSum + 2*PAGEMARGIN > tabViewPortSize.width:
+				widthAdjust = (tabViewPortSize.width - 2*PAGEMARGIN) / float(widthSum)
+				widthSum *= widthAdjust
+
+
+			if ORIGIN == 'top':
+				top = tab.viewPort.origin.y + tabViewPortSize.height - PAGEMARGIN
+				
+				width = tabViewPortSize.width
+				leftBorder = int(tab.viewPort.origin.x + width / 2.0 - widthSum / 2.0)
+	#			print leftBorder
+
+				# Draw a blue rectangle all across the Edit View's visible area
+	#			NSColor.blueColor().set()
+	#			NSBezierPath.strokeRect_(NSRect(NSPoint(leftBorder, Glyphs.font.currentTab.viewPort.origin.y), NSPoint(width, Glyphs.font.currentTab.viewPort.size.height)))
+
+
+				# Draw a blue rectangle all across the Edit View's visible area
+	#			NSColor.blueColor().set()
+	#			NSBezierPath.strokeRect_(NSRect(NSPoint(leftBorder, Glyphs.font.currentTab.viewPort.origin.y), NSPoint(width, Glyphs.font.currentTab.viewPort.size.height)))
+
+				# Draw a blue rectangle all across the Edit View's visible area
+	#			NSColor.blueColor().set()
+	#			NSBezierPath.strokeRect_(NSRect(NSPoint(leftBorder, top - self.areas[0].height()), NSPoint(widthSum, self.areas[0].height())))
+
+
+
+				# Draw a white rectangle all across the Edit View's visible area
+				#NSColor.whiteColor().set()
+				NSColor.colorWithDeviceRed_green_blue_alpha_(1, 1, 1, .95).set()
+				if len(self.areas):
+					height = self.areas[0].height() + 2 * PAGEMARGIN
+					NSBezierPath.fillRect_(NSRect(NSPoint(leftBorder, tab.viewPort.origin.y + tab.viewPort.size.height - height), NSPoint(width, height)))
+
+	#				x = tab.viewPort.origin.x + (tabViewPortSize.width / 2.0 - widthSum / 2.0) * widthAdjust
+
+					left = 0
+					for area in self.areas:
+						area.top = top
+						area.left = leftBorder + left
+						area.widthAdjust = widthAdjust
+						area.draw(font)
+
+
+						#top += area.height() + AREAOUTERMARGIN
+						left += area.w * widthAdjust + AREAOUTERMARGIN
+	#					left -= left % 2
+	#					left += 2
+
+
+
+
+
+
+
+			if ORIGIN == 'bottom':
+				top = tab.viewPort.origin.y + PAGEMARGIN + self.areas[0].height()
+				left = int(tab.viewPort.origin.x + tab.viewPort.size.width / 2.0 - (widthSum - (len(self.areas) - 1) * AREAOUTERMARGIN) / 2.0)
+
+				for area in self.areas:
+					area.top = top
+					area.left = left
+					area.draw()
+
+					#top += area.height() + AREAOUTERMARGIN
+					left += area.w + AREAOUTERMARGIN
 
 
 
@@ -1596,20 +1597,23 @@ def start(plugin):
 
 def mouse(plugin, info):
 
+	return
+
 	tab = Glyphs.font.currentTab
-	font = Glyphs.font
-	
-	tabHeight = tab.previewHeight
-	if tabHeight > 0:
-		tabHeight += 1
+	if tab:
+		font = Glyphs.font
+		
+		tabHeight = tab.previewHeight
+		if tabHeight > 0:
+			tabHeight += 1
 
-	mousePosition = info.object().locationInWindow()
-	mousePosition = NSPoint(mousePosition.x + tab.viewPort.origin.x, mousePosition.y + tab.viewPort.origin.y - tab.bottomToolbarHeight - tabHeight)
+		mousePosition = info.object().locationInWindow()
+		mousePosition = NSPoint(mousePosition.x + tab.viewPort.origin.x, mousePosition.y + tab.viewPort.origin.y - tab.bottomToolbarHeight - tabHeight)
 
-	if font and font.tempData().has_key('spaceBarAreas'):
-		for a in font.tempData()['spaceBarAreas']:
-			for area in a:
-				area.mouseOver(mousePosition)
+		if font and font.tempData().has_key('spaceBarAreas'):
+			for a in font.tempData()['spaceBarAreas']:
+				for area in a:
+					area.mouseOver(mousePosition)
 
 
 

@@ -1,0 +1,5 @@
+To install Space Bar in Glyphs simply double-click on the extension file.
+Glyphs will load and ask you for permission to install it.
+You may have to restart Glyphs before the tool will show up in the View menu.
+
+It will be copied to ~/Library/Application Support/Glyphs/Plugins/
