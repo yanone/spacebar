@@ -187,10 +187,14 @@ GSInstance.showInPanel = GSInstance_ShowInPanel
 
 def GSInstance_SortedInterpolationValues(self):
 
-	instanceMastersKeys = list(self.instanceInterpolations.keys())
-	instanceMastersKeys.sort(key=lambda x: self.font().masters.index(self.font().masters[x]))
+	if Glyphs.buildNumber >= 1141:
+		font = self.font
+	else:
+		font = self.font()
 
-	return [[self.font().masters[x], self.instanceInterpolations[x]] for x in instanceMastersKeys]
+	instanceMastersKeys = list(self.instanceInterpolations.keys())
+	instanceMastersKeys.sort(key=lambda x: font.masters.index(font.masters[x]))
+	return [[font.masters[x], self.instanceInterpolations[x]] for x in instanceMastersKeys]
 
 GSInstance.sortedInterpolationValues = property(lambda self: GSInstance_SortedInterpolationValues(self))
 
@@ -1142,7 +1146,7 @@ def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activ
 
 
 						sbValue = instance.interpolatedFontProxy.kerningForFontMasterID_firstGlyph_secondGlyph_direction_(masterID, a, b, writingDirection)
-						print sbValue
+						# print sbValue
 						if sbValue > 9999999999999:
 							sbValue = 0
 						value = Value(instanceCount, sbValue)
@@ -1639,6 +1643,7 @@ class SpacingInvader(ReporterPlugin):
 
 		self.areas = []
 
+
 		margin = 20
 #		innerMargin = 5
 		column = 120
@@ -1751,118 +1756,111 @@ class SpacingInvader(ReporterPlugin):
 		# Empty list of context menu items
 		contextMenus = []
 
-
-		if hasattr(GlyphsApp.plugins, 'USESELFCREATEDNSMENUITEMS') and GlyphsApp.plugins.USESELFCREATEDNSMENUITEMS == True:
-
-			# Dot Icon
-			path = __file__
-			Bundle = NSBundle.bundleWithPath_(path[:path.rfind("Contents/Resources/")])
-			dot = Bundle.imageForResource_('menudot')
-			dot.setTemplate_(True) # Makes the icon blend in with the toolbar.
-			dot.setSize_(NSSize(16, 16))
+		# Dot Icon
+		path = __file__
+		Bundle = NSBundle.bundleWithPath_(path[:path.rfind("Contents/Resources/")])
+		dot = Bundle.imageForResource_('menudot')
+		dot.setTemplate_(True) # Makes the icon blend in with the toolbar.
+		dot.setSize_(NSSize(16, 16))
 
 
-			# Show Masters
-			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Masters', 'de': 'Master'}), self.callbackShowMasters, "")
-			if self.getPreference('mode') == 'masters':
-				menu.setState_(NSOnState)
-				menu.setOnStateImage_(dot)
-			contextMenus.append({"menu": menu})
+		# Show Masters
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Masters', 'de': 'Master'}), self.callbackShowMasters, "")
+		if self.getPreference('mode') == 'masters':
+			menu.setState_(NSOnState)
+			menu.setOnStateImage_(dot)
+		contextMenus.append({"menu": menu})
 
-			# Show Instances
-			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Instances', 'de': 'Instanzen'}), self.callbackShowInstances, "")
-			if self.getPreference('mode') == 'instances':
-				menu.setState_(NSOnState)
-				menu.setOnStateImage_(dot)
-			contextMenus.append({"menu": menu})
+		# Show Instances
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Instances', 'de': 'Instanzen'}), self.callbackShowInstances, "")
+		if self.getPreference('mode') == 'instances':
+			menu.setState_(NSOnState)
+			menu.setOnStateImage_(dot)
+		contextMenus.append({"menu": menu})
 
-			# Only active instances
-			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Show Only Active Instances', 'de': 'Zeige nur aktive Instanzen'}), self.callbackShowOnlyActiveInstances, "")
-			if self.getPreference('onlyActiveInstances') == True:
-				menu.setState_(NSOnState)
-			if self.getPreference('mode') == 'masters':
-				menu.setAction_(None)
-			contextMenus.append({"menu": menu})
+		# Only active instances
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Show Only Active Instances', 'de': 'Zeige nur aktive Instanzen'}), self.callbackShowOnlyActiveInstances, "")
+		if self.getPreference('onlyActiveInstances') == True:
+			menu.setState_(NSOnState)
+		if self.getPreference('mode') == 'masters':
+			menu.setAction_(None)
+		contextMenus.append({"menu": menu})
 
-			# ---------- Separator
-			contextMenus.append({"menu": NSMenuItem.separatorItem()})
+		# ---------- Separator
+		contextMenus.append({"menu": NSMenuItem.separatorItem()})
 
-			# Show Interpolations Space
-			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['interpolation'], self.callbackShowInterpolation, "")
-			if self.getPreference('interpolation') == True:
-				menu.setState_(NSOnState)
-			contextMenus.append({"menu": menu})
+		# Show Interpolations Space
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['interpolation'], self.callbackShowInterpolation, "")
+		if self.getPreference('interpolation') == True:
+			menu.setState_(NSOnState)
+		contextMenus.append({"menu": menu})
 
-			# Show Kerning
-			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['kerning'], self.callbackShowKerning, "")
-			if self.getPreference('kerning') == True:
-				menu.setState_(NSOnState)
-			contextMenus.append({"menu": menu})
+		# Show Kerning
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['kerning'], self.callbackShowKerning, "")
+		if self.getPreference('kerning') == True:
+			menu.setState_(NSOnState)
+		contextMenus.append({"menu": menu})
 
-			# ---------- Separator
-			contextMenus.append({"menu": NSMenuItem.separatorItem()})
+		# ---------- Separator
+		contextMenus.append({"menu": NSMenuItem.separatorItem()})
 
-			# Show Width
-			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['width'], self.callbackShowWidth, "")
-			if self.getPreference('width') == True:
-				menu.setState_(NSOnState)
-			contextMenus.append({"menu": menu})
+		# Show Width
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['width'], self.callbackShowWidth, "")
+		if self.getPreference('width') == True:
+			menu.setState_(NSOnState)
+		contextMenus.append({"menu": menu})
 
-			# Show Sidebearings
-			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['sidebearings'], self.callbackShowSidebearings, "")
-			if self.getPreference('sidebearings') == True:
-				menu.setState_(NSOnState)
-			contextMenus.append({"menu": menu})
+		# Show Sidebearings
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['sidebearings'], self.callbackShowSidebearings, "")
+		if self.getPreference('sidebearings') == True:
+			menu.setState_(NSOnState)
+		contextMenus.append({"menu": menu})
 
-			# Show BBox Width
-			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxw'], self.callbackShowBboxw, "")
-			if self.getPreference('bboxw') == True:
-				menu.setState_(NSOnState)
-			contextMenus.append({"menu": menu})
+		# Show BBox Width
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxw'], self.callbackShowBboxw, "")
+		if self.getPreference('bboxw') == True:
+			menu.setState_(NSOnState)
+		contextMenus.append({"menu": menu})
 
-			# Show BBox Height
-			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxh'], self.callbackShowBboxh, "")
-			if self.getPreference('bboxh') == True:
-				menu.setState_(NSOnState)
-			contextMenus.append({"menu": menu})
+		# Show BBox Height
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxh'], self.callbackShowBboxh, "")
+		if self.getPreference('bboxh') == True:
+			menu.setState_(NSOnState)
+		contextMenus.append({"menu": menu})
 
-			# Show BBox Heighest
-			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxt'], self.callbackShowBboxt, "")
-			if self.getPreference('bboxt') == True:
-				menu.setState_(NSOnState)
-			contextMenus.append({"menu": menu})
+		# Show BBox Heighest
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxt'], self.callbackShowBboxt, "")
+		if self.getPreference('bboxt') == True:
+			menu.setState_(NSOnState)
+		contextMenus.append({"menu": menu})
 
-			# Show BBox Lowest
-			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxb'], self.callbackShowBboxb, "")
-			if self.getPreference('bboxb') == True:
-				menu.setState_(NSOnState)
-			contextMenus.append({"menu": menu})
+		# Show BBox Lowest
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxb'], self.callbackShowBboxb, "")
+		if self.getPreference('bboxb') == True:
+			menu.setState_(NSOnState)
+		contextMenus.append({"menu": menu})
 
-			# ---------- Separator
-			contextMenus.append({"menu": NSMenuItem.separatorItem()})
+		# ---------- Separator
+		contextMenus.append({"menu": NSMenuItem.separatorItem()})
 
-			# Website
-			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Space Bar Website...', 'de': 'Space Bar Webseite...'}), self.callbackGoToWebsite, "")
-			contextMenus.append({"menu": menu})
+		# Website
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Space Bar Website...', 'de': 'Space Bar Webseite...'}), self.callbackGoToWebsite, "")
+		contextMenus.append({"menu": menu})
 
-			# Twitter
-			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': '@yanone on Twitter...', 'de': '@yanone auf Twitter...'}), self.callbackGoToTwitter, "")
-			contextMenus.append({"menu": menu})
+		# Twitter
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': '@yanone on Twitter...', 'de': '@yanone auf Twitter...'}), self.callbackGoToTwitter, "")
+		contextMenus.append({"menu": menu})
 
-			# Put them into a sub menu
-			if hasattr(GlyphsApp.plugins, 'PLUGINMENUSINFORCEDSUBMENU') and GlyphsApp.plugins.PLUGINMENUSINFORCEDSUBMENU == False:
-				menu = NSMenuItem.alloc().init()
-				menu.setTitle_('Space Bar v%s' % VERSION)
-				subMenu = NSMenu.alloc().init()
-				for item in contextMenus:
-					item['menu'].setTarget_(self)
-					subMenu.addItem_(item['menu'])
-				menu.setSubmenu_(subMenu)
+		# Put them into a sub menu
+		menu = NSMenuItem.alloc().init()
+		menu.setTitle_('Space Bar v%s' % VERSION)
+		subMenu = NSMenu.alloc().init()
+		for item in contextMenus:
+			item['menu'].setTarget_(self)
+			subMenu.addItem_(item['menu'])
+		menu.setSubmenu_(subMenu)
 
-				return [{'menu': menu}]
-
-		# Return list of context menu items
-		return contextMenus
+		return [{'menu': menu}]
 
 
 	def callbackGoToWebsite(self, sender):
