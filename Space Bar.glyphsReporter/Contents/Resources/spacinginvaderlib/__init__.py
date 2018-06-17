@@ -1764,6 +1764,14 @@ class SpacingInvader(ReporterPlugin):
 		dot.setSize_(NSSize(16, 16))
 
 
+		# Buy
+		if self.trial == True:
+			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': u'Buy Space Bar for only €20', 'de': u'Kaufe Space Bar für nur 20€'}), self.callbackBuy, "")
+			contextMenus.append({"menu": menu})
+			# ---------- Separator
+			contextMenus.append({"menu": NSMenuItem.separatorItem()})
+
+
 		# Show Masters
 		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Masters', 'de': 'Master'}), self.callbackShowMasters, "")
 		if self.getPreference('mode') == 'masters':
@@ -1862,6 +1870,9 @@ class SpacingInvader(ReporterPlugin):
 
 		return [{'menu': menu}]
 
+
+	def callbackBuy(self, sender):
+		NSWorkspace.sharedWorkspace().openURL_(NSURL.URLWithString_('https://yanone.de/buy/software/'))
 
 	def callbackGoToWebsite(self, sender):
 		NSWorkspace.sharedWorkspace().openURL_(NSURL.URLWithString_('https://yanone.de/software/spacebar/'))
