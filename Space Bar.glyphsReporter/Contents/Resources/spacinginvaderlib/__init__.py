@@ -1575,12 +1575,11 @@ def foreground(plugin, layer):
 
 		display.draw(font)
 
-		drawTime = time.time() - drawTime
-
 		if NSHomeDirectory() == '/Users/yanone':
+			drawTime = time.time() - drawTime
 			left = tab.viewPort.origin.x + PAGEMARGIN
 			top = tab.viewPort.origin.y + PAGEMARGIN
-			plugin.drawTextAtPoint('Calc: %ss, Draw: %ss, Total: %ss' % (str(calcTime)[:4], str(drawTime)[:4], str(calcTime + drawTime)[:4]), NSPoint(left, top), fontSize = 10 * tab.scale, align = 'left')
+			plugin.drawTextAtPoint('Calc: %ss, Draw: %ss, Total: %ss' % (str(calcTime)[:4], str(drawTime)[:4], str(calcTime + drawTime)[:4]), NSPoint(left, top + 10), fontSize = 10 * tab.scale, align = 'left')
 
 	except:
 		print traceback.format_exc()
