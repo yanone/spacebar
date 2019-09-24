@@ -21,7 +21,7 @@ _list = [
 
 ['ZIP it', 'ditto -c -k --rsrc "Space Bar.glyphsReporter" "Space Bar.glyphsReporter.notarize.zip"', None, ''],
 
-['Notarize', 'xcrun altool --notarize-app --primary-bundle-id "de.Yanone.GlyphsAppSpeedPunkReporter" --username "post@yanone.de" --password "@keychain:AppleDev_AppSpecificPassword de.Yanone.GlyphsAppSpeedPunkReporter" --file "Space Bar.glyphsReporter.notarize.zip"', None, ''],
+['Notarize', 'xcrun altool --notarize-app --primary-bundle-id "de.Yanone.GlyphsAppSpaceBarReporter" --username "post@yanone.de" --password "@keychain:AppleDev_AppSpecificPassword de.Yanone.GlyphsAppSpeedPunkReporter" --file "Space Bar.glyphsReporter.notarize.zip"', None, ''],
 ]
 
 for l in _list:
