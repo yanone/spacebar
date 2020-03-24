@@ -1,8 +1,0 @@
-Space Bar is a plug-in for the popular type design application Glyphs.app
-that gives you a lot more insight into the spacing and other metrics of your font.
-It is particularly handy for working on a font with multiple masters.
-
-The tool visualizes metrics values that cannot otherwise be seen while editing.
-Because you’re working on a master, you can’t see how your changes play out across all your defined instances.
-
-More information here: https://yanone.de/software/spacebar/

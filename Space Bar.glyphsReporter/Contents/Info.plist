@@ -17,9 +17,9 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleVersion</key>
-	<string>1.06</string>
+	<string>1.07</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.06</string>
+	<string>1.07</string>
 	<key>UpdateFeedURL</key>
 	<string>https://yanone.de/buy/?page=versionInformation&amp;product=spacebarglyphs&amp;format=GlyphsInfoPlist</string>
 	<key>productPageURL</key>
