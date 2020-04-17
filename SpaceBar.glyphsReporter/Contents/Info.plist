@@ -19,8 +19,6 @@
 	<key>CFBundleVersion</key>
 	<string>1.08</string>
 	<key>CFBundleShortVersionString</key>
-	<key>UpdateFeedURL</key>
-	<string>https://yanone.de/buy/?page=versionInformation&amp;product=spacebarglyphs&amp;format=GlyphsInfoPlist</string>
 	<string>1.08</string>
 	<key>productPageURL</key>
 	<string>https://yanone.de/software/spacebar/</string>
