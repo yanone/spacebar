@@ -947,7 +947,9 @@ def addValues(plugin, action, layers, layersWithoutDeviations, masterValues, dis
 		glyphMasterLayers = glyph.masterLayers
 
 		i = 0
-		for layer in [x[1] for x in glyphMasterLayers]:
+		for master in glyph.parent.masters:
+
+			layer = glyph.layers[master.id]
 
 			if action == 'sidebearings':
 				if sideOfGlyph == 'left':
@@ -1109,7 +1111,7 @@ def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activ
 
 				kerning, exception = getKerning(master, leftGlyph, rightGlyph)
 
-				value = Value(master.weightValue, kerning)
+				value = Value(i, kerning)
 				value.label = int(kerning)
 
 				kerningArea.addValue(value)
