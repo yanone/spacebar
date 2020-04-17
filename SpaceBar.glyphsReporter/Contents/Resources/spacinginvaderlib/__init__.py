@@ -1319,7 +1319,7 @@ def foreground(plugin, layer):
 
 			# Add interpolation space panel
 			if plugin.getPreference('interpolation'):
-				font.tempData()['spaceBarAreas'].append([addInterpolation(display, font, plugin.getPreference('mode'), plugin.names['interpolation'])])
+				font.tempData()['spaceBarAreas'].append([addInterpolation(display, font, mode, plugin.names['interpolation'])])
 
 
 			# Prepare glyphs for display
@@ -1703,45 +1703,8 @@ class SpacingInvader(ReporterPlugin):
 
 		Glyphs.addCallback(self.mouse, MOUSEMOVED)
 
-		# Trial
-		self.trial = False
-		if self.trial:
-			self.trialKey = 'clearDrawInitMethod'
-			self.trialPeriod = 30
-			if not Glyphs.defaults[self.trialKey]:
-				Glyphs.defaults[self.trialKey] = int(time.time())
-
-				Message(Glyphs.localize({
-				'en': u'Welcome to Space Bar %s' % VERSION,
-				'de': u'Willkommen zu Space Bar %s' % VERSION,
-				}),
-				Glyphs.localize({
-					'en': u'Your %s-day trial period of Space Bar has started. You’ll find me in the View menu under ‘Show Space Bar’.\nTo learn more about Space Bar, please visit\nhttps://yanone.de/software/spacebar/.\n\nEnjoy and make sure to follow @yanone on Twitter.' % self.trialPeriod,
-					'de': u'Deine %s-Tage-Testperiode von Space Bar hat begonnen. Du findest mich im Ansicht-Menü unter ‘Space Bar anzeigen’.\nMehr über Space Bar erfährst Du hier:\nhttps://yanone.de/software/spacebar/.\n\nViel Spaß und wir sehen uns bei @yanone auf Twitter.' % self.trialPeriod,
-				}))
-
-
-			if 0 < self.trialDaysLeft() <= self.trialPeriod:
-
-				Glyphs.showNotification(Glyphs.localize({
-					'en':  'Space Bar trial period',
-					'de': u'Space Bar Testperiode',
-				}), Glyphs.localize({
-					'en':  '%s days left' % self.trialDaysLeft(),
-					'de': u'Noch %s Tage übrig' % self.trialDaysLeft(),
-				}))
-
-			elif self.trialDaysLeft() <= 0:
-				Message(Glyphs.localize({
-					'en':  'Space Bar trial period',
-					'de': u'Space Bar Testperiode',
-				}),
-				Glyphs.localize({
-					'en':  'Your %s-day trial period of Space Bar has expired.\nPlease hop over to https://yanone.de/buy/software/ to purchase the plug-in for just 20 EUR (15 EUR for students).' % self.trialPeriod,
-					'de': u'Deine %s-Tage-Testperiode von Space Bar ist abgelaufen.\nAuf https://yanone.de/buy/software/\nkannst Du das Plug-In für nur 20 EUR (15 EUR für Studenten) erwerben.' % self.trialPeriod,
-				}))
-
-		if justInstalled and self.trial == False:
+		# Welcome
+		if justInstalled:
 			Message(Glyphs.localize({
 				'en': u'Welcome to Space Bar %s' % VERSION,
 				'de': u'Willkommen zu Space Bar %s' % VERSION,
@@ -1761,14 +1724,6 @@ class SpacingInvader(ReporterPlugin):
 		dot = Bundle.imageForResource_('menudot')
 		dot.setTemplate_(True) # Makes the icon blend in with the toolbar.
 		dot.setSize_(NSSize(16, 16))
-
-
-		# Buy
-		if self.trial == True:
-			menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': u'Buy Space Bar for only €20', 'de': u'Kaufe Space Bar für nur 20€'}), self.callbackBuy, "")
-			contextMenus.append({"menu": menu})
-			# ---------- Separator
-			contextMenus.append({"menu": NSMenuItem.separatorItem()})
 
 
 		# Show Masters
@@ -1923,18 +1878,8 @@ class SpacingInvader(ReporterPlugin):
 		self.setPreference('bboxb', not self.getPreference('bboxb'))
 		Glyphs.redraw()
 
-	def trialDaysLeft(self):
-		return self.trialPeriod - int((int(time.time()) - Glyphs.defaults[self.trialKey]) / float(24*60*60))
-
 	def allowed(self):
-		if self.trial == True:
-			if self.trialDaysLeft() > 0:
-				return True
-			else:
-				return False
-		else:
-			return True
-
+		return True
 
 	def mouse(self, info):
 		spacinginvaderlib.mouse(self, info)
