@@ -1700,7 +1700,7 @@ class SpacingInvader(ReporterPlugin):
 
 	@objc.python_method
 	def foregroundInViewCoords(self, layer=None):
-		print("__foregroundInViewCoords")
+		# print("__foregroundInViewCoords")
 		if self.allowed():
 			if layer is None:
 				layer = self.controller.activeLayer
