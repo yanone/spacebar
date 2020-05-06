@@ -910,9 +910,9 @@ def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activ
 	for master in font.masters:
 		pairHasKerning = False
 		kerning = font.kerningForPair(master.id, leftGlyph.rightKerningKey, rightGlyph.leftKerningKey)
-		if kerning > 10000000000:
+		if kerning != None and kerning > 10000000000:
 			kerning = 0
-		if kerning != 0:
+		if kerning != None and kerning != 0:
 			pairHasKerning = True
 			break
 
