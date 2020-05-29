@@ -1124,7 +1124,7 @@ def foreground(plugin, layer):
 					cachedGlyphs = tab.graphicView().layoutManager().cachedGlyphs()
 
 				# Catch left and right glyphs
-				if tab and tab.textRange == 0 and textCursor > 0 and len(plugin.tabLayers) >= 1 and 'GSGlyph' in plugin.tabLayers[textCursor - 1].parent.__class__.__name__:
+				if tab and tab.textRange == 0 and textCursor > 0 and tab.text[textCursor-1] != '\n' and len(plugin.tabLayers) >= 1 and 'GSGlyph' in plugin.tabLayers[textCursor - 1].parent.__class__.__name__:
 					leftGlyph = plugin.tabLayers[textCursor - 1].parent
 					leftLayer = cachedGlyphs[textCursor - 1]
 
