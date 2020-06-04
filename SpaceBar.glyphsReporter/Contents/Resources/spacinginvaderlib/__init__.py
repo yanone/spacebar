@@ -246,8 +246,8 @@ class Dot(object):
 		hasValue = False
 		if self.associatedValue:
 			hasValue = True
-		 	if self.associatedValue.y == None:
-		 		hasValue = False
+			if self.associatedValue.y == None:
+				hasValue = False
 
 
 		# Deviation dot
