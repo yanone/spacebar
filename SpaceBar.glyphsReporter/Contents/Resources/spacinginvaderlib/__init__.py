@@ -227,7 +227,7 @@ class Line(object):
 
 
 class Dot(object):
-	def __init__(self, plugin, x, y, y2 = None, color = (0, 0, 0), size = POINTSIZESMALL, label = None, associatedValue = None):
+	def __init__(self, plugin, x, y, y2=None, color=(0, 0, 0), size=POINTSIZESMALL, label=None, associatedValue=None):
 		self.plugin = plugin
 		self.x = x
 		self.y = y
@@ -390,11 +390,6 @@ class Area(object):
 		return round(self.left), bottom, width, height
 
 	def mouseOver(self, mousePosition):
-
-
-
-
-
 
 		left, bottom, width, height = self.position()
 
