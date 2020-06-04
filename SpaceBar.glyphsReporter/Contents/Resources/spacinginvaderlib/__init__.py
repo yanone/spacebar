@@ -1,9 +1,10 @@
-from __future__ import print_function
 # encoding: utf-8
+from __future__ import print_function, unicode_literals
 
 
 
-import copy, traceback, time, os
+
+import copy, traceback, time, os, objc
 from GlyphsApp import Glyphs, GSGlyph, GSFont, GSInstance, MOUSEMOVED, RTL, Message
 import GlyphsApp.plugins
 from AppKit import NSBezierPath, NSPoint, NSColor, NSRect, NSHomeDirectory, NSImage, NSSize, NSZeroRect, NSCompositeSourceOver, NSMenuItem, NSMenu, NSWorkspace, NSURL, NSBundle, NSOnState
@@ -117,19 +118,26 @@ def Interpolate(a, b, p, limit = False):
 def GSGlyph_MasterLayers(self):
 	
 	layers = []
-	
-	for layer in self.layers:
-		if layer.layerId == layer.associatedMasterId:
-			layers.append([self.parent.masters[layer.layerId].weightValue, layer])
-		elif '{' in layer.name and '}' in layer.name:
-			weightValue = float(layer.name.split('{')[1].split('}')[0].split(',')[0].strip())
-			layers.append([weightValue, layer])
-	
+	buildNumber = Glyphs.buildNumber
+	if buildNumber > 3000:
+		for layer in self.layers:
+			firstAxisValue = None
+			if layer.isMasterLayer:
+				firstAxisValue = self.parent.masters[layer.layerId].axes[0]
+			elif 'coordinates' in layer.attributes:
+				firstAxis = self.parent.axes[0]
+				firstAxisValue = layer.attributes['coordinates'].get(firstAxis.axisId, None)
+			if firstAxisValue:
+				layers.append([firstAxisValue, layer])
+	else:
+		for layer in self.layers:
+			if layer.layerId == layer.associatedMasterId:
+				layers.append([self.parent.masters[layer.layerId].axes[0], layer])
+			elif '{' in layer.name and '}' in layer.name:
+				weightValue = float(layer.name.split('{')[1].split('}')[0].split(',')[0].strip())
+				layers.append([weightValue, layer])
 	layers.sort(key=lambda x: x[0], reverse=False)
-	
 	return layers
-
-GSGlyph.masterLayers = property(lambda self: GSGlyph_MasterLayers(self))
 
 def GSGlyph_ChangeString(self):
 	
@@ -139,20 +147,16 @@ def GSGlyph_ChangeString(self):
 
 	return string
 
-GSGlyph.changeString = property(lambda self: GSGlyph_ChangeString(self))
-
 def GSFont_MasterLayers(self):
 	
 	layers = []
 	
 	for master in self.masters:
-		layers.append([master.weightValue, master])
+		layers.append([master.axes[0], master])
 	
 #	layers.sort(key=lambda x: x[0], reverse=False)
 	
 	return layers
-
-GSFont.masterLayers = property(lambda self: GSFont_MasterLayers(self))
 
 def GSFont_ActiveInstances(self):
 	
@@ -165,26 +169,17 @@ def GSFont_ActiveInstances(self):
 	
 	return instances
 
-GSFont.activeInstances = property(lambda self: GSFont_ActiveInstances(self))
-
 def GSFont_VisibleInstances(self, plugin):
 	
 	instances = []
 	
 	for instance in self.instances:
-
-		if instance.showInPanel(plugin):
+		if GSInstance_ShowInPanel(instance, plugin):
 			instances.append(instance)
-	
-	
 	return instances
-
-GSFont.visibleInstances = GSFont_VisibleInstances
 
 def GSInstance_ShowInPanel(self, plugin):
 	return plugin.getPreference('onlyActiveInstances') == False or plugin.getPreference('onlyActiveInstances') == True and self.active == True
-
-GSInstance.showInPanel = GSInstance_ShowInPanel
 
 def GSInstance_SortedInterpolationValues(self):
 
@@ -196,8 +191,6 @@ def GSInstance_SortedInterpolationValues(self):
 	instanceMastersKeys = list(self.instanceInterpolations.keys())
 	instanceMastersKeys.sort(key=lambda x: font.masters.index(font.masters[x]))
 	return [[font.masters[x], self.instanceInterpolations[x]] for x in instanceMastersKeys]
-
-GSInstance.sortedInterpolationValues = property(lambda self: GSInstance_SortedInterpolationValues(self))
 
 ######################################################################################################################################################################
 
@@ -523,7 +516,7 @@ class Area(object):
 					line.draw()
 
 				# vertical master position line
-	#			x = left + (font.masters[font.masterIndex].weightValue - self.xMin) * xScopeAdjust
+	#			x = left + (font.masters[font.masterIndex].axes[0] - self.xMin) * xScopeAdjust
 	#			line = Line(Dot(self.parent.plugin, x, position[1]), Dot(self.parent.plugin, x, position[1] + position[3]), strokeWidth = .25)
 	#			line.draw()
 
@@ -739,7 +732,7 @@ def drawValuesInInterpolationSpace(font, display, area, masterLayers, positiveCo
 
 			for instance in font.instances:
 
-				if instance.weightValue == weightValue:
+				if instance.axes[0] == weightValue:
 
 					x = font.instances.index(instance)
 					y = interpolatedValue
@@ -758,9 +751,9 @@ def drawValuesInInterpolationSpace(font, display, area, masterLayers, positiveCo
 				firstInstance = font.instances[i]
 				secondInstance = font.instances[i+1]
 
-				if firstInstance.weightValue < weightValue < secondInstance.weightValue:
+				if firstInstance.axes[0] < weightValue < secondInstance.axes[0]:
 
-					t = NormalizeMinMax(firstInstance.weightValue, secondInstance.weightValue, 0, 1, weightValue)
+					t = NormalizeMinMax(firstInstance.axes[0], secondInstance.axes[0], 0, 1, weightValue)
 					x = i + t
 					y = interpolatedValue
 
@@ -820,40 +813,40 @@ def drawValuesInInterpolationSpace(font, display, area, masterLayers, positiveCo
 
 
 		# Extrapolation 
-		if instance.weightValue < masterLayers[0][0]:
+		if instance.axes[0] < masterLayers[0][0]:
 
 			l1 = masterLayers[0][2]
 			l2 = masterLayers[1][2]
-			t = NormalizeMinMax(masterLayers[0][0], masterLayers[1][0], 0, 1, instance.weightValue)
+			t = NormalizeMinMax(masterLayers[0][0], masterLayers[1][0], 0, 1, instance.axes[0])
 			sbValue = Interpolate(l1, l2, t)
 
 		# Interpolation
-		elif masterLayers[0][0] <= instance.weightValue <= masterLayers[-1][0]:
+		elif masterLayers[0][0] <= instance.axes[0] <= masterLayers[-1][0]:
 			for i in range(len(masterLayers) - 1):
 				
-				if masterLayers[i][0] == instance.weightValue:
+				if masterLayers[i][0] == instance.axes[0]:
 					sbValue = masterLayers[i][2]
 
-				elif masterLayers[i][0] < instance.weightValue < masterLayers[i + 1][0]:
+				elif masterLayers[i][0] < instance.axes[0] < masterLayers[i + 1][0]:
 					l1 = masterLayers[i][2]
 					l2 = masterLayers[i+1][2]
-					t = NormalizeMinMax(masterLayers[i][0], masterLayers[i+1][0], 0, 1, instance.weightValue)
+					t = NormalizeMinMax(masterLayers[i][0], masterLayers[i+1][0], 0, 1, instance.axes[0])
 					sbValue = Interpolate(l1, l2, t)
 
-				elif masterLayers[i + 1][0] == instance.weightValue:
+				elif masterLayers[i + 1][0] == instance.axes[0]:
 					sbValue = masterLayers[i + 1][2]
 
 
 		# Extrapolation 
-		if instance.weightValue > masterLayers[-1][0]:
+		if instance.axes[0] > masterLayers[-1][0]:
 			l1 = masterLayers[-2][2]
 			l2 = masterLayers[-1][2]
-			t = NormalizeMinMax(masterLayers[-2][0], masterLayers[-1][0], 0, 1, instance.weightValue)
+			t = NormalizeMinMax(masterLayers[-2][0], masterLayers[-1][0], 0, 1, instance.axes[0])
 			sbValue = Interpolate(l1, l2, t)
 
 
 		value = Value(instanceCount, sbValue)
-#			value = Value(instance.weightValue, sbValue)
+#			value = Value(instance.axes[0], sbValue)
 #			if layer.layerId == font.selectedFontMaster.id:
 #				value.size = POINTSIZELARGE
 		value.label = int(round(sbValue))
@@ -881,14 +874,11 @@ def _addSidebearings(display, glyph, side, mode, title = None, titleAlign = 'lef
 	sbArea = Area(AREASTANDARDWIDTH, AREASTANDARDHEIGHT, title, titleAlign)
 	font = glyph.parent
 
-
 	if mode == 'masters':
-		
-		glyphMasterLayers = glyph.masterLayers
-
+		glyphMasterLayers = GSGlyph_MasterLayers(glyph)
 		i = 0
-		for layer in [x[1] for x in glyphMasterLayers]:
-
+		for masterLayer in glyphMasterLayers:
+			layer = masterLayer[1]
 			if side == 'left':
 				sbValue = layer.LSB
 			elif side == 'right':
@@ -899,19 +889,15 @@ def _addSidebearings(display, glyph, side, mode, title = None, titleAlign = 'lef
 				value.size = POINTSIZELARGE
 			value.label = sbValue
 			sbArea.addValue(value)
-
 			i+=1
 
 	elif mode == 'instances':
-
-
-
 		# Cache
-		compareString = str(glyph.lastChange) + str(activeLayer) + str(font.selectedFontMaster) + str(font.selectedLayers[0]) + str(glyphSide) + str(side) + str(font.activeInstances)
+		compareString = str(glyph.lastChange) + str(activeLayer) + str(font.selectedFontMaster) + str(font.selectedLayers[0]) + str(glyphSide) + str(side) + str(GSFont_ActiveInstances(font))
 		key = 'sidebearing_%s_%s' % (glyphSide, side)
 		if key not in areaCache or compareString != areaCache[key]['compareString']:
 
-			glyphMasterLayers = glyph.masterLayers
+			glyphMasterLayers = GSGlyph_MasterLayers(glyph)
 
 			# extend masters list with interpolatable values
 			for masterLayer in glyphMasterLayers:
@@ -940,13 +926,11 @@ def addValues(plugin, action, layers, layersWithoutDeviations, masterValues, dis
 
 	if mode == 'masters':
 		
-		glyphMasterLayers = glyph.masterLayers
+		glyphMasterLayers = GSGlyph_MasterLayers(glyph)
 
 		i = 0
-		for master in glyph.parent.masters:
-
-			layer = glyph.layers[master.id]
-
+		for masterLayer in glyphMasterLayers:
+			layer = masterLayer[1]
 			if action == 'sidebearings':
 				if sideOfGlyph == 'left':
 					sbValue = layer.LSB
@@ -971,7 +955,7 @@ def addValues(plugin, action, layers, layersWithoutDeviations, masterValues, dis
 				if not layer.paths and not layer.components:
 					sbValue = None
 
-			# Value is valid			
+			# Value is valid
 			value = Value(i, sbValue)
 			if layer == activeLayer:
 				value.size = POINTSIZELARGE
@@ -1133,7 +1117,7 @@ def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activ
 
 				instanceCount = 0
 				for instance in font.instances:
-					if instance.showInPanel(plugin):
+					if GSInstance_ShowInPanel(instance, plugin):
 						a = instance.interpolatedFontProxy.glyphForName_(leftGlyph.name)
 						b = instance.interpolatedFontProxy.glyphForName_(rightGlyph.name)
 						masterID = instance.interpolatedFontProxy.fontMasterAtIndex_(0).valueForKey_("id")
@@ -1191,8 +1175,8 @@ def addInterpolation(display, font, mode, title):
 
 		for i, master in enumerate(font.masters):
 
-			value = Value(master.weightValue, master.weightValue)
-			value.label = int(master.weightValue)
+			value = Value(master.axes[0], master.axes[0])
+			value.label = int(master.axes[0])
 
 			instancesArea.addValue(value)
 
@@ -1202,11 +1186,11 @@ def addInterpolation(display, font, mode, title):
 	elif mode == 'instances':
 
 
-		glyphMasterLayers = font.masterLayers
+		glyphMasterLayers = GSFont_MasterLayers(font)
 
 		# extend masters list with interpolatable values
 		for masterLayer in glyphMasterLayers:
-			masterLayer.append(masterLayer[1].weightValue)
+			masterLayer.append(masterLayer[1].axes[0])
 
 
 
@@ -1262,7 +1246,7 @@ def foreground(plugin, layer):
 		if font.tool == 'TextTool' or font.tool == 'SelectTool':
 
 			# Prepare values of masters
-			activeInstances = font.visibleInstances(plugin)
+			activeInstances = GSFont_VisibleInstances(font, plugin)
 			fontMastersString = str(font.masters) + str(activeInstances) + str(plugin.getPreference('onlyActiveInstances'))
 
 			if plugin.mastersChangedString != fontMastersString:
@@ -1272,18 +1256,18 @@ def foreground(plugin, layer):
 				mastersAdded = []
 
 				if font.instances:
-					instanceMasters = [x[0] for x in font.instances[0].sortedInterpolationValues]
+					instanceMasters = [x[0] for x in GSInstance_SortedInterpolationValues(font.instances[0])]
 					instanceCount = 0
 
 
 					for instance in font.instances:
 
-						if instance.showInPanel(plugin):
+						if GSInstance_ShowInPanel(instance, plugin):
 
 							for master in font.masters:
-								if len(instance.instanceInterpolations.keys()) == 1 and master.id == instance.instanceInterpolations.keys()[0]:
+								if len(instance.instanceInterpolations) == 1 and master.id == instance.instanceInterpolations.allKeys()[0]:
 
-									if activeInstances[0].weightValue <= master.weightValue <= activeInstances[-1].weightValue:
+									if activeInstances[0].axes[0] <= master.axes[0] <= activeInstances[-1].axes[0]:
 										mastersAdded.append(master)
 
 										value = Value(instanceCount, 0)
@@ -1294,11 +1278,11 @@ def foreground(plugin, layer):
 										plugin.masterValues.append(value)
 								#		instanceCount += 1
 
-							newInstanceMasters = [x[0] for x in instance.sortedInterpolationValues]
+							newInstanceMasters = [x[0] for x in GSInstance_SortedInterpolationValues(instance)]
 
 							if not newInstanceMasters[0] in mastersAdded and len(newInstanceMasters) == 2 and instanceMasters != newInstanceMasters:
 								
-								if activeInstances[0].weightValue <= newInstanceMasters[0].weightValue <= activeInstances[-1].weightValue:
+								if activeInstances[0].axes[0] <= newInstanceMasters[0].axes[0] <= activeInstances[-1].axes[0]:
 									mastersAdded.append(newInstanceMasters[0])
 
 									x = instanceCount - .5
@@ -1326,9 +1310,11 @@ def foreground(plugin, layer):
 			leftLayer = None
 			rightLayer = None
 
-#			buildNumber = Glyphs.buildNumber
-
-			cachedGlyphs = tab.graphicView().layoutManager().cachedGlyphs()
+			buildNumber = Glyphs.buildNumber
+			if buildNumber > 3000:
+				cachedGlyphs = tab.graphicView().layoutManager().cachedLayers()
+			else:
+				cachedGlyphs = tab.graphicView().layoutManager().cachedGlyphs()
 
 			# Catch left and right glyphs
 			if tab and tab.textRange == 0 and textCursor > 0 and len(plugin.tabLayers) >= 1 and 'GSGlyph' in plugin.tabLayers[textCursor - 1].parent.__class__.__name__:
@@ -1355,7 +1341,7 @@ def foreground(plugin, layer):
 
 			# Add brace layers to masters
 			if leftGlyph:
-				changeString = leftGlyph.changeString + str(leftLayer) + str(rightLayer) + preferencesString + str(font.activeInstances) + str(tab.viewPort.size.width) + str(tab.viewPort.size.height)
+				changeString = GSGlyph_ChangeString(leftGlyph) + str(leftLayer) + str(rightLayer) + preferencesString + str(GSFont_ActiveInstances(font)) + str(tab.viewPort.size.width) + str(tab.viewPort.size.height)
 				if 'left' not in plugin.glyphChangeStrings or plugin.glyphChangeStrings['left'] != changeString:
 
 					plugin.glyphChangeStrings['left'] = changeString
@@ -1366,17 +1352,16 @@ def foreground(plugin, layer):
 					instanceCount = 0
 					for instance in font.instances:
 
-						if instance.showInPanel(plugin):
-							if instance.showInPanel(plugin):
-								if Glyphs.buildNumber >= 1056:
-									layer = instance.interpolatedFontProxy.glyphForName_(leftGlyph.name).layerForKey_(instance.interpolatedFontProxy.fontMasterID())
-								else:
-									if hasattr(leftGlyph, 'interpolate_decompose_error_'):
-										layer = leftGlyph.interpolate_decompose_error_(instance, True, None)
-									elif hasattr(leftGlyph, 'interpolate_keepSmart_error_'):
-										layer = leftGlyph.interpolate_keepSmart_error_(instance, True, None)
-								leftLayers.append((instanceCount, instance, layer))
-								instanceCount += 1
+						if GSInstance_ShowInPanel(instance, plugin):
+							if Glyphs.buildNumber >= 1056:
+								layer = instance.interpolatedFontProxy.glyphForName_(leftGlyph.name).layerForKey_(instance.interpolatedFontProxy.fontMasterID())
+							else:
+								if hasattr(leftGlyph, 'interpolate_decompose_error_'):
+									layer = leftGlyph.interpolate_decompose_error_(instance, True, None)
+								elif hasattr(leftGlyph, 'interpolate_keepSmart_error_'):
+									layer = leftGlyph.interpolate_keepSmart_error_(instance, True, None)
+							leftLayers.append((instanceCount, instance, layer))
+							instanceCount += 1
 
 					# Prepare layers without deviations
 					leftLayersWithoutDeviations = []
@@ -1395,13 +1380,12 @@ def foreground(plugin, layer):
 						for layer in glyph.layers:
 							layer.decomposeComponents()
 						for instance in font.instances:
-							if instance.showInPanel(plugin):
-								if instance.showInPanel(plugin):
-									if hasattr(glyph, 'interpolate_decompose_error_'):
-										layer = glyph.interpolate_decompose_error_(instance, True, None)
-									elif hasattr(glyph, 'interpolate_keepSmart_error_'):
-										layer = glyph.interpolate_keepSmart_error_(instance, True, None)
-									leftLayersWithoutDeviations.append(layer)
+							if GSInstance_ShowInPanel(instance, plugin):
+								if hasattr(glyph, 'interpolate_decompose_error_'):
+									layer = glyph.interpolate_decompose_error_(instance, True, None)
+								elif hasattr(glyph, 'interpolate_keepSmart_error_'):
+									layer = glyph.interpolate_keepSmart_error_(instance, True, None)
+								leftLayersWithoutDeviations.append(layer)
 
 
 
@@ -1413,7 +1397,7 @@ def foreground(plugin, layer):
 							if len(interpolationValues) == 1:
 								for instanceCount, instance, _layer in leftLayers:
 									if instanceCount < len(leftLayers) - 1:
-										if leftLayers[instanceCount][1].weightValue <= interpolationValues[0] <= leftLayers[instanceCount + 1][1].weightValue:
+										if leftLayers[instanceCount][1].axes[0] <= interpolationValues[0] <= leftLayers[instanceCount + 1][1].axes[0]:
 											value = Value(instanceCount + .5, 0)
 											value.size = UNSELECTEDMASTERSIZE
 											value.color = UNSELECTEDMASTERCOLOR
@@ -1425,8 +1409,8 @@ def foreground(plugin, layer):
 							elif len(interpolationValues) == 2:
 								for instanceCount, instance, _layer in leftLayers:
 									if instanceCount < len(leftLayers) - 1:
-										if leftLayers[instanceCount][1].widthValue == interpolationValues[1] and leftLayers[instanceCount + 1][1].widthValue == interpolationValues[1]:
-											if leftLayers[instanceCount][1].weightValue < interpolationValues[0] and leftLayers[instanceCount + 1][1].weightValue > interpolationValues[0]:
+										if leftLayers[instanceCount][1].axes[1] == interpolationValues[1] and leftLayers[instanceCount + 1][1].axes[1] == interpolationValues[1]:
+											if leftLayers[instanceCount][1].axes[0] < interpolationValues[0] and leftLayers[instanceCount + 1][1].axes[0] > interpolationValues[0]:
 												value = Value(instanceCount + .5, 0)
 												value.size = UNSELECTEDMASTERSIZE
 												value.color = UNSELECTEDMASTERCOLOR
@@ -1460,7 +1444,7 @@ def foreground(plugin, layer):
 
 			# Right Glyph
 			if rightGlyph:
-				changeString = rightGlyph.changeString + str(leftLayer) + str(rightLayer) + preferencesString + str(font.activeInstances) + str(tab.viewPort.size.width) + str(tab.viewPort.size.height)
+				changeString = GSGlyph_ChangeString(rightGlyph) + str(leftLayer) + str(rightLayer) + preferencesString + str(GSFont_ActiveInstances(font)) + str(tab.viewPort.size.width) + str(tab.viewPort.size.height)
 				if 'right' not in plugin.glyphChangeStrings or plugin.glyphChangeStrings['right'] != changeString:
 
 					plugin.glyphChangeStrings['right'] = changeString
@@ -1472,17 +1456,16 @@ def foreground(plugin, layer):
 					for instance in font.instances:
 
 
-						if instance.showInPanel(plugin):
-							if instance.showInPanel(plugin):
-								if Glyphs.buildNumber >= 1056:
-									layer = instance.interpolatedFontProxy.glyphForName_(rightGlyph.name).layerForKey_(instance.interpolatedFontProxy.fontMasterID())
-								else:
-									if hasattr(rightGlyph, 'interpolate_keepSmart_error_'):
-										layer = rightGlyph.interpolate_keepSmart_error_(instance, True, None)
-									elif hasattr(rightGlyph, 'interpolate_decompose_error_'):
-										layer = rightGlyph.interpolate_decompose_error_(instance, True, None)
-								rightLayers.append((instanceCount, instance, layer))
-								instanceCount += 1
+						if GSInstance_ShowInPanel(instance, plugin):
+							if Glyphs.buildNumber >= 1056:
+								layer = instance.interpolatedFontProxy.glyphs[rightGlyph.name].layers[instance.interpolatedFontProxy.fontMasterID()]
+							else:
+								if hasattr(rightGlyph, 'interpolate_keepSmart_error_'):
+									layer = rightGlyph.interpolate_keepSmart_error_(instance, True, None)
+								elif hasattr(rightGlyph, 'interpolate_decompose_error_'):
+									layer = rightGlyph.interpolate_decompose_error_(instance, True, None)
+							rightLayers.append((instanceCount, instance, layer))
+							instanceCount += 1
 
 					# Prepare layers without deviations
 					rightLayersWithoutDeviations = []
@@ -1501,24 +1484,33 @@ def foreground(plugin, layer):
 						for layer in glyph.layers:
 							layer.decomposeComponents()
 						for instance in font.instances:
-							if instance.showInPanel(plugin):
-								if instance.showInPanel(plugin):
-									if hasattr(glyph, 'interpolate_decompose_error_'):
-										layer = glyph.interpolate_decompose_error_(instance, True, None)
-									elif hasattr(glyph, 'interpolate_keepSmart_error_'):
-										layer = glyph.interpolate_keepSmart_error_(instance, True, None)
-									rightLayersWithoutDeviations.append(layer)
+							if GSInstance_ShowInPanel(instance, plugin):
+								if hasattr(glyph, 'interpolate_decompose_error_'):
+									layer = glyph.interpolate_decompose_error_(instance, True, None)
+								elif hasattr(glyph, 'interpolate_keepSmart_error_'):
+									layer = glyph.interpolate_keepSmart_error_(instance, True, None)
+								rightLayersWithoutDeviations.append(layer)
 
 					# Add brace layers to masters
 					masterValues = copy.copy(plugin.masterValues)
 					for layer in rightGlyph.layers:
-						if '{' in layer.name and '}' in layer.name:
-							interpolationValues = map(int, layer.name.split('{')[1].split('}')[0].split(','))
-
-							if len(interpolationValues) == 1:
+						coordinates  = None
+						if Glyphs.buildNumber > 3000:
+							if layer.attributes is not None and 'coordinates' in layer.attributes:
+								coordinates = []
+								coordinatesAttribut = layer.attributes['coordinates']
+								for axis in font.axes:
+									axisValue = coordinatesAttribut[axis.axisId]
+									coordinates.append(axisValue)
+						else:
+							if '{' in layer.name and '}' in layer.name:
+								coordinates = list(map(int, layer.name.split('{')[1].split('}')[0].split(',')))
+						
+						if coordinates:
+							if len(coordinates) == 1:
 								for instanceCount, instance, _layer in rightLayers:
 									if instanceCount < len(rightLayers) - 1:
-										if rightLayers[instanceCount][1].weightValue <= interpolationValues[0] <= rightLayers[instanceCount + 1][1].weightValue:
+										if rightLayers[instanceCount][1].axes[0] <= coordinates[0] <= rightLayers[instanceCount + 1][1].axes[0]:
 											value = Value(instanceCount + .5, 0)
 											value.size = UNSELECTEDMASTERSIZE
 											value.color = UNSELECTEDMASTERCOLOR
@@ -1527,11 +1519,11 @@ def foreground(plugin, layer):
 												value.associatedObject = layer
 											masterValues.insert(0, value)
 
-							elif len(interpolationValues) == 2:
+							elif len(coordinates) == 2:
 								for instanceCount, instance, _layer in rightLayers:
 									if instanceCount < len(rightLayers) - 1:
-										if rightLayers[instanceCount][1].widthValue == interpolationValues[1] and rightLayers[instanceCount + 1][1].widthValue == interpolationValues[1]:
-											if rightLayers[instanceCount][1].weightValue < interpolationValues[0] and rightLayers[instanceCount + 1][1].weightValue > interpolationValues[0]:
+										if rightLayers[instanceCount][1].axes[1] == coordinates[1] and rightLayers[instanceCount + 1][1].axes[1] == coordinates[1]:
+											if rightLayers[instanceCount][1].axes[0] < coordinates[0] and rightLayers[instanceCount + 1][1].axes[0] > coordinates[0]:
 												value = Value(instanceCount + .5, 0)
 												value.size = UNSELECTEDMASTERSIZE
 												value.color = UNSELECTEDMASTERCOLOR
@@ -1635,11 +1627,11 @@ from AppKit import NSUserDefaults, NSHomeDirectory
 
 class SpacingInvader(ReporterPlugin):
 
+	@objc.python_method
 	def settings(self):
 		self.menuName = 'Space Bar'
 
 		self.areas = []
-
 
 		margin = 20
 #		innerMargin = 5
@@ -1712,6 +1704,7 @@ class SpacingInvader(ReporterPlugin):
 			})
 			)
 
+	@objc.python_method
 	def conditionalContextMenus(self):
 		# Empty list of context menu items
 		contextMenus = []
@@ -1725,21 +1718,21 @@ class SpacingInvader(ReporterPlugin):
 
 
 		# Show Masters
-		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Masters', 'de': 'Master'}), self.callbackShowMasters, "")
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Masters', 'de': 'Master'}), self.callbackShowMasters_, "")
 		if self.getPreference('mode') == 'masters':
 			menu.setState_(NSOnState)
 			menu.setOnStateImage_(dot)
 		contextMenus.append({"menu": menu})
 
 		# Show Instances
-		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Instances', 'de': 'Instanzen'}), self.callbackShowInstances, "")
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Instances', 'de': 'Instanzen'}), self.callbackShowInstances_, "")
 		if self.getPreference('mode') == 'instances':
 			menu.setState_(NSOnState)
 			menu.setOnStateImage_(dot)
 		contextMenus.append({"menu": menu})
 
 		# Only active instances
-		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Show Only Active Instances', 'de': 'Zeige nur aktive Instanzen'}), self.callbackShowOnlyActiveInstances, "")
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Show Only Active Instances', 'de': 'Zeige nur aktive Instanzen'}), self.callbackShowOnlyActiveInstances_, "")
 		if self.getPreference('onlyActiveInstances') == True:
 			menu.setState_(NSOnState)
 		if self.getPreference('mode') == 'masters':
@@ -1750,13 +1743,13 @@ class SpacingInvader(ReporterPlugin):
 		contextMenus.append({"menu": NSMenuItem.separatorItem()})
 
 		# Show Interpolations Space
-		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['interpolation'], self.callbackShowInterpolation, "")
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['interpolation'], self.callbackShowInterpolation_, "")
 		if self.getPreference('interpolation') == True:
 			menu.setState_(NSOnState)
 		contextMenus.append({"menu": menu})
 
 		# Show Kerning
-		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['kerning'], self.callbackShowKerning, "")
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['kerning'], self.callbackShowKerning_, "")
 		if self.getPreference('kerning') == True:
 			menu.setState_(NSOnState)
 		contextMenus.append({"menu": menu})
@@ -1765,37 +1758,37 @@ class SpacingInvader(ReporterPlugin):
 		contextMenus.append({"menu": NSMenuItem.separatorItem()})
 
 		# Show Width
-		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['width'], self.callbackShowWidth, "")
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['width'], self.callbackShowWidth_, "")
 		if self.getPreference('width') == True:
 			menu.setState_(NSOnState)
 		contextMenus.append({"menu": menu})
 
 		# Show Sidebearings
-		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['sidebearings'], self.callbackShowSidebearings, "")
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['sidebearings'], self.callbackShowSidebearings_, "")
 		if self.getPreference('sidebearings') == True:
 			menu.setState_(NSOnState)
 		contextMenus.append({"menu": menu})
 
 		# Show BBox Width
-		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxw'], self.callbackShowBboxw, "")
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxw'], self.callbackShowBboxw_, "")
 		if self.getPreference('bboxw') == True:
 			menu.setState_(NSOnState)
 		contextMenus.append({"menu": menu})
 
 		# Show BBox Height
-		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxh'], self.callbackShowBboxh, "")
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxh'], self.callbackShowBboxh_, "")
 		if self.getPreference('bboxh') == True:
 			menu.setState_(NSOnState)
 		contextMenus.append({"menu": menu})
 
 		# Show BBox Heighest
-		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxt'], self.callbackShowBboxt, "")
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxt'], self.callbackShowBboxt_, "")
 		if self.getPreference('bboxt') == True:
 			menu.setState_(NSOnState)
 		contextMenus.append({"menu": menu})
 
 		# Show BBox Lowest
-		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxb'], self.callbackShowBboxb, "")
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(self.names['bboxb'], self.callbackShowBboxb_, "")
 		if self.getPreference('bboxb') == True:
 			menu.setState_(NSOnState)
 		contextMenus.append({"menu": menu})
@@ -1804,11 +1797,11 @@ class SpacingInvader(ReporterPlugin):
 		contextMenus.append({"menu": NSMenuItem.separatorItem()})
 
 		# Website
-		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Space Bar Website...', 'de': 'Space Bar Webseite...'}), self.callbackGoToWebsite, "")
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': 'Space Bar Website...', 'de': 'Space Bar Webseite...'}), self.callbackGoToWebsite_, "")
 		contextMenus.append({"menu": menu})
 
 		# Twitter
-		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': '@yanone on Twitter...', 'de': '@yanone auf Twitter...'}), self.callbackGoToTwitter, "")
+		menu = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(Glyphs.localize({'en': '@yanone on Twitter...', 'de': '@yanone auf Twitter...'}), self.callbackGoToTwitter_, "")
 		contextMenus.append({"menu": menu})
 
 		# Put them into a sub menu
@@ -1822,122 +1815,123 @@ class SpacingInvader(ReporterPlugin):
 
 		return [{'menu': menu}]
 
-
-	def callbackBuy(self, sender):
-		NSWorkspace.sharedWorkspace().openURL_(NSURL.URLWithString_('https://yanone.de/buy/software/'))
-
-	def callbackGoToWebsite(self, sender):
+	def callbackGoToWebsite_(self, sender):
 		NSWorkspace.sharedWorkspace().openURL_(NSURL.URLWithString_('https://yanone.de/software/spacebar/'))
 		
-	def callbackGoToTwitter(self, sender):
+	def callbackGoToTwitter_(self, sender):
 		NSWorkspace.sharedWorkspace().openURL_(NSURL.URLWithString_('https://twitter.com/yanone/'))
 
-	def callbackShowMasters(self, sender):
+	def callbackShowMasters_(self, sender):
 		self.setPreference('mode', 'masters')
 		Glyphs.redraw()
 
-	def callbackShowInstances(self, sender):
+	def callbackShowInstances_(self, sender):
 		self.setPreference('mode', 'instances')
 		Glyphs.redraw()
 
-	def callbackShowOnlyActiveInstances(self, sender):
+	def callbackShowOnlyActiveInstances_(self, sender):
 		self.setPreference('onlyActiveInstances', not self.getPreference('onlyActiveInstances'))
 		Glyphs.redraw()
 
-	def callbackShowWidth(self, sender):
+	def callbackShowWidth_(self, sender):
 		self.setPreference('width', not self.getPreference('width'))
 		Glyphs.redraw()
 
-	def callbackShowSidebearings(self, sender):
+	def callbackShowSidebearings_(self, sender):
 		self.setPreference('sidebearings', not self.getPreference('sidebearings'))
 		Glyphs.redraw()
 
-	def callbackShowInterpolation(self, sender):
+	def callbackShowInterpolation_(self, sender):
 		self.setPreference('interpolation', not self.getPreference('interpolation'))
 		Glyphs.redraw()
 
-	def callbackShowKerning(self, sender):
+	def callbackShowKerning_(self, sender):
 		self.setPreference('kerning', not self.getPreference('kerning'))
 		Glyphs.redraw()
 
-	def callbackShowBboxw(self, sender):
+	def callbackShowBboxw_(self, sender):
 		self.setPreference('bboxw', not self.getPreference('bboxw'))
 		Glyphs.redraw()
 
-	def callbackShowBboxh(self, sender):
+	def callbackShowBboxh_(self, sender):
 		self.setPreference('bboxh', not self.getPreference('bboxh'))
 		Glyphs.redraw()
 
-	def callbackShowBboxt(self, sender):
+	def callbackShowBboxt_(self, sender):
 		self.setPreference('bboxt', not self.getPreference('bboxt'))
 		Glyphs.redraw()
 
-	def callbackShowBboxb(self, sender):
+	def callbackShowBboxb_(self, sender):
 		self.setPreference('bboxb', not self.getPreference('bboxb'))
 		Glyphs.redraw()
 
 	def allowed(self):
 		return True
 
+	@objc.python_method
 	def mouse(self, info):
 		spacinginvaderlib.mouse(self, info)
-
-	def modeCallback(self, sender):
+	
+	# do we need those
+	''' 
+	def modeCallback_(self, sender):
 		self.setPreference('mode', self.modeSettings[sender.get()][0])
 		Glyphs.redraw()
 
-	def onlyActiveInstancesCallback(self, sender):
+	def onlyActiveInstancesCallback_(self, sender):
 		self.setPreference('onlyActiveInstances', sender.get())
 		Glyphs.redraw()
 
-	def sidebearingsCallback(self, sender):
+	def sidebearingsCallback_(self, sender):
 		self.setPreference('sidebearings', sender.get())
 		Glyphs.redraw()
 
-	def widthCallback(self, sender):
+	def widthCallback_(self, sender):
 		self.setPreference('width', sender.get())
 		Glyphs.redraw()
 
-	def kerningCallback(self, sender):
+	def kerningCallback_(self, sender):
 		self.setPreference('kerning', sender.get())
 		Glyphs.redraw()
 
-	def interpolationCallback(self, sender):
+	def interpolationCallback_(self, sender):
 		self.setPreference('interpolation', sender.get())
 		Glyphs.redraw()
 
-	def bboxwCallback(self, sender):
+	def bboxwCallback_(self, sender):
 		self.setPreference('bboxw', sender.get())
 		Glyphs.redraw()
 
-	def bboxhCallback(self, sender):
+	def bboxhCallback_(self, sender):
 		self.setPreference('bboxh', sender.get())
 		Glyphs.redraw()
 
-	def bboxtCallback(self, sender):
+	def bboxtCallback_(self, sender):
 		self.setPreference('bboxt', sender.get())
 		Glyphs.redraw()
 
-	def bboxbCallback(self, sender):
+	def bboxbCallback_(self, sender):
 		self.setPreference('bboxb', sender.get())
 		Glyphs.redraw()
-
+	'''
+	@objc.python_method
 	def getPreference(self, key):
 		return NSUserDefaults.standardUserDefaults().objectForKey_("de.yanone.spaceBar.%s" % (key))
-		
+	@objc.python_method
 	def setPreference(self, key, value):
 		NSUserDefaults.standardUserDefaults().setObject_forKey_(value, "de.yanone.spaceBar.%s" % (key))
-
+	@objc.python_method
 	def start(self):
 		spacinginvaderlib.start(self)
-
+	@objc.python_method
 	def foregroundInViewCoords(self, layer=None):
 		if self.allowed():
+			layer = self.controller.activeLayer()
 			if layer != None:
 				spacinginvaderlib.foreground(self, layer)
 #		cProfile.runctx('foreground(self, layer)', globals(), locals())
 
-
+	@objc.python_method
 	def reloadLib(self):
 		try:
 			reload(spacinginvaderlib)
