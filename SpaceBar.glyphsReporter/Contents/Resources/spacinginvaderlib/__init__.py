@@ -1,3 +1,4 @@
+from __future__ import print_function
 # encoding: utf-8
 
 
@@ -332,7 +333,7 @@ class Area(object):
 
 	def addValue(self, value):
 
-		if not self.values.has_key(value.layer):
+		if value.layer not in self.values:
 			self.values[value.layer] = []
 
 		self.values[value.layer].append(value)
@@ -908,7 +909,7 @@ def _addSidebearings(display, glyph, side, mode, title = None, titleAlign = 'lef
 		# Cache
 		compareString = str(glyph.lastChange) + str(activeLayer) + str(font.selectedFontMaster) + str(font.selectedLayers[0]) + str(glyphSide) + str(side) + str(font.activeInstances)
 		key = 'sidebearing_%s_%s' % (glyphSide, side)
-		if not areaCache.has_key(key) or compareString != areaCache[key]['compareString']:
+		if key not in areaCache or compareString != areaCache[key]['compareString']:
 
 			glyphMasterLayers = glyph.masterLayers
 
@@ -1213,7 +1214,7 @@ def addInterpolation(display, font, mode, title):
 		# Cache
 		compareString = str(font.selectedFontMaster) + str(font.selectedLayers[0]) + str(glyphMasterLayers)
 		key = 'interpolation'
-		if not areaCache.has_key(key) or compareString != areaCache[key]['compareString']:
+		if key not in areaCache or compareString != areaCache[key]['compareString']:
 			drawValuesInInterpolationSpace(font, display, instancesArea, glyphMasterLayers, positiveColor = (234, 102, 50))
 			areaCache[key] = {
 				'compareString': compareString,
@@ -1355,7 +1356,7 @@ def foreground(plugin, layer):
 			# Add brace layers to masters
 			if leftGlyph:
 				changeString = leftGlyph.changeString + str(leftLayer) + str(rightLayer) + preferencesString + str(font.activeInstances) + str(tab.viewPort.size.width) + str(tab.viewPort.size.height)
-				if not plugin.glyphChangeStrings.has_key('left') or plugin.glyphChangeStrings['left'] != changeString:
+				if 'left' not in plugin.glyphChangeStrings or plugin.glyphChangeStrings['left'] != changeString:
 
 					plugin.glyphChangeStrings['left'] = changeString
 					plugin.areaCache['left'] = []
@@ -1460,7 +1461,7 @@ def foreground(plugin, layer):
 			# Right Glyph
 			if rightGlyph:
 				changeString = rightGlyph.changeString + str(leftLayer) + str(rightLayer) + preferencesString + str(font.activeInstances) + str(tab.viewPort.size.width) + str(tab.viewPort.size.height)
-				if not plugin.glyphChangeStrings.has_key('right') or plugin.glyphChangeStrings['right'] != changeString:
+				if 'right' not in plugin.glyphChangeStrings or plugin.glyphChangeStrings['right'] != changeString:
 
 					plugin.glyphChangeStrings['right'] = changeString
 					plugin.areaCache['right'] = []
@@ -1579,7 +1580,7 @@ def foreground(plugin, layer):
 			plugin.drawTextAtPoint('Calc: %ss, Draw: %ss, Total: %ss' % (str(calcTime)[:4], str(drawTime)[:4], str(calcTime + drawTime)[:4]), NSPoint(left, top + 10), fontSize = 10 * tab.scale, align = 'left')
 
 	except:
-		print traceback.format_exc()
+		print(traceback.format_exc())
 
 
 def start(plugin):
@@ -1612,7 +1613,7 @@ def mouse(plugin, info):
 		mousePosition = info.object().locationInWindow()
 		mousePosition = NSPoint(mousePosition.x + tab.viewPort.origin.x, mousePosition.y + tab.viewPort.origin.y - tab.bottomToolbarHeight - tabHeight)
 
-		if font and font.tempData().has_key('spaceBarAreas'):
+		if font and 'spaceBarAreas' in font.tempData():
 			for a in font.tempData()['spaceBarAreas']:
 				for area in a:
 					area.mouseOver(mousePosition)
@@ -1930,7 +1931,7 @@ class SpacingInvader(ReporterPlugin):
 	def start(self):
 		spacinginvaderlib.start(self)
 
-	def foregroundInViewCoords(self, layer):
+	def foregroundInViewCoords(self, layer=None):
 		if self.allowed():
 			if layer != None:
 				spacinginvaderlib.foreground(self, layer)
@@ -1944,5 +1945,5 @@ class SpacingInvader(ReporterPlugin):
 			self.settings()
 			self.start()
 		except:
-			print traceback.format_exc()
+			print(traceback.format_exc())
 
