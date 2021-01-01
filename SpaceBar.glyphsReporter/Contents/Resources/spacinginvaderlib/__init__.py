@@ -7,10 +7,10 @@ from __future__ import print_function, unicode_literals
 import copy, traceback, time, os, objc
 from GlyphsApp import Glyphs, GSGlyph, GSFont, GSInstance, MOUSEMOVED, RTL, Message
 import GlyphsApp.plugins
-from AppKit import NSBezierPath, NSPoint, NSColor, NSRect, NSHomeDirectory, NSImage, NSSize, NSZeroRect, NSCompositeSourceOver, NSMenuItem, NSMenu, NSWorkspace, NSURL, NSBundle, NSOnState
+from AppKit import NSDictionary, NSBezierPath, NSPoint, NSColor, NSRect, NSHomeDirectory, NSImage, NSSize, NSZeroRect, NSCompositeSourceOver, NSMenuItem, NSMenu, NSWorkspace, NSURL, NSBundle, NSOnState
 import plistlib
 
-plist = plistlib.readPlist(os.path.join(os.path.dirname(__file__), '..', '..', 'Info.plist'))
+plist = NSDictionary.dictionaryWithContentsOfFile_(os.path.join(os.path.dirname(__file__), '..', '..', 'Info.plist'))
 VERSION = plist['CFBundleShortVersionString']
 
 
