@@ -118,24 +118,16 @@ def Interpolate(a, b, p, limit = False):
 def GSGlyph_MasterLayers(self):
 	
 	layers = []
-	buildNumber = Glyphs.buildNumber
-	if buildNumber > 3000:
-		for layer in self.layers:
-			firstAxisValue = None
-			if layer.isMasterLayer:
-				firstAxisValue = layer.master.axes[0]
-			elif 'coordinates' in layer.attributes:
-				firstAxis = self.parent.axes[0]
-				firstAxisValue = layer.attributes['coordinates'].get(firstAxis.axisId, None)
-			if firstAxisValue:
-				layers.append([firstAxisValue, layer])
-	else:
-		for layer in self.layers:
-			if layer.layerId == layer.associatedMasterId:
-				layers.append([self.parent.masters[layer.layerId].axes[0], layer])
-			elif '{' in layer.name and '}' in layer.name:
-				weightValue = float(layer.name.split('{')[1].split('}')[0].split(',')[0].strip())
-				layers.append([weightValue, layer])
+	for layer in self.layers:
+		firstAxisValue = None
+		if layer.isMasterLayer:
+			firstAxisValue = layer.master.axes[0]
+		elif 'coordinates' in layer.attributes:
+			firstAxis = self.parent.axes[0]
+			firstAxisValue = layer.attributes['coordinates'].get(firstAxis.axisId, None)
+		if firstAxisValue is not None:
+			layers.append([firstAxisValue, layer])
+
 	layers.sort(key=lambda x: x[0], reverse=False)
 	return layers
 
@@ -183,10 +175,7 @@ def GSInstance_ShowInPanel(self, plugin):
 
 def GSInstance_SortedInterpolationValues(self):
 
-	if Glyphs.buildNumber >= 1141:
-		font = self.font
-	else:
-		font = self.font()
+	font = self.font
 
 	instanceMastersKeys = list(self.instanceInterpolations.keys())
 	instanceMastersKeys.sort(key=lambda x: font.masters.index(font.masters[x]))
@@ -870,7 +859,7 @@ def drawValuesInInterpolationSpace(font, display, area, masterLayers, positiveCo
 
 
 def _addSidebearings(display, glyph, side, mode, title = None, titleAlign = 'left', glyphSide = 'left', activeLayer = None):
-
+	raise("unused")
 	sbArea = Area(AREASTANDARDWIDTH, AREASTANDARDHEIGHT, title, titleAlign)
 	font = glyph.parent
 
@@ -1110,53 +1099,42 @@ def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activ
 
 		elif mode == 'instances':
 
-			if hasattr(Glyphs, 'buildNumber') and Glyphs.buildNumber < 996:
-				kerningArea.infoText = 'Showing kerning for instances is\nsupported only in Glyph version 2.4.2\n(Build 996) or higher.\nPlease update Glyphs to the latest version.'
+			instanceCount = 0
+			for instance in font.instances:
+				if GSInstance_ShowInPanel(instance, plugin):
+					a = instance.interpolatedFontProxy.glyphForName_(leftGlyph.name)
+					b = instance.interpolatedFontProxy.glyphForName_(rightGlyph.name)
+					masterID = instance.interpolatedFontProxy.fontMasterAtIndex_(0).valueForKey_("id")
 
-			else:
+					sbValue = instance.interpolatedFontProxy.kerningForFontMasterID_firstGlyph_secondGlyph_direction_(masterID, a, b, writingDirection)
+					# print sbValue
+					if sbValue > 9999999999999:
+						sbValue = 0
+					value = Value(instanceCount, sbValue)
 
-				instanceCount = 0
-				for instance in font.instances:
-					if GSInstance_ShowInPanel(instance, plugin):
-						a = instance.interpolatedFontProxy.glyphForName_(leftGlyph.name)
-						b = instance.interpolatedFontProxy.glyphForName_(rightGlyph.name)
-						masterID = instance.interpolatedFontProxy.fontMasterAtIndex_(0).valueForKey_("id")
+					# Value is valid			
+					if sbValue != None:
+						if instance.active:
 
-#						print hasattr(instance.interpolatedFontProxy, 'kerningForFontMasterID_firstGlyph_secondGlyph_')
-#						print hasattr(instance.interpolatedFontProxy, 'kerningForFontMasterID_LeftKey_RightKey_direction_')
-#						print hasattr(instance.interpolatedFontProxy, 'kerningForFontMasterID_firstGlyph_secondGlyph_direction_')
+							if sbValue < 0:
+								value.color = (0, 158, 224)
+							elif sbValue > 0:
+								value.color = (248, 179, 52)
+							value.label = int(round(sbValue))
 
-
-						sbValue = instance.interpolatedFontProxy.kerningForFontMasterID_firstGlyph_secondGlyph_direction_(masterID, a, b, writingDirection)
-						# print sbValue
-						if sbValue > 9999999999999:
-							sbValue = 0
-						value = Value(instanceCount, sbValue)
-
-						# Value is valid			
-						if sbValue != None:
-							if instance.active:
-
-								if sbValue < 0:
-									value.color = (0, 158, 224)
-								elif sbValue > 0:
-									value.color = (248, 179, 52)
-								value.label = int(round(sbValue))
-
-							else:
-								value.color = INACTIVECOLOR
-								value.label = None
-
-
-						# Value is empty
 						else:
-							value.color = (128, 128, 128)
+							value.color = INACTIVECOLOR
 							value.label = None
 
-						instanceCount += 1
 
-						kerningArea.addValue(value)
+					# Value is empty
+					else:
+						value.color = (128, 128, 128)
+						value.label = None
 
+					instanceCount += 1
+
+					kerningArea.addValue(value)
 
 
 				# Add masters
@@ -1310,11 +1288,7 @@ def foreground(plugin, layer):
 			leftLayer = None
 			rightLayer = None
 
-			buildNumber = Glyphs.buildNumber
-			if buildNumber > 3000:
-				cachedGlyphs = tab.graphicView().layoutManager().cachedLayers()
-			else:
-				cachedGlyphs = tab.graphicView().layoutManager().cachedGlyphs()
+			cachedGlyphs = tab.graphicView().layoutManager().cachedLayers()
 
 			# Catch left and right glyphs
 			if tab and tab.textRange == 0 and textCursor > 0 and len(plugin.tabLayers) >= 1 and 'GSGlyph' in plugin.tabLayers[textCursor - 1].parent.__class__.__name__:
@@ -1353,13 +1327,7 @@ def foreground(plugin, layer):
 					for instance in font.instances:
 
 						if GSInstance_ShowInPanel(instance, plugin):
-							if Glyphs.buildNumber >= 1056:
-								layer = instance.interpolatedFontProxy.glyphForName_(leftGlyph.name).layerForKey_(instance.interpolatedFontProxy.fontMasterID())
-							else:
-								if hasattr(leftGlyph, 'interpolate_decompose_error_'):
-									layer = leftGlyph.interpolate_decompose_error_(instance, True, None)
-								elif hasattr(leftGlyph, 'interpolate_keepSmart_error_'):
-									layer = leftGlyph.interpolate_keepSmart_error_(instance, True, None)
+							layer = instance.interpolatedFontProxy.glyphs[leftGlyph.name].layers[instance.interpolatedFontProxy.fontMasterID()]
 							leftLayers.append((instanceCount, instance, layer))
 							instanceCount += 1
 
@@ -1457,13 +1425,7 @@ def foreground(plugin, layer):
 
 
 						if GSInstance_ShowInPanel(instance, plugin):
-							if Glyphs.buildNumber >= 1056:
-								layer = instance.interpolatedFontProxy.glyphs[rightGlyph.name].layers[instance.interpolatedFontProxy.fontMasterID()]
-							else:
-								if hasattr(rightGlyph, 'interpolate_keepSmart_error_'):
-									layer = rightGlyph.interpolate_keepSmart_error_(instance, True, None)
-								elif hasattr(rightGlyph, 'interpolate_decompose_error_'):
-									layer = rightGlyph.interpolate_decompose_error_(instance, True, None)
+							layer = instance.interpolatedFontProxy.glyphs[rightGlyph.name].layers[instance.interpolatedFontProxy.fontMasterID()]
 							rightLayers.append((instanceCount, instance, layer))
 							instanceCount += 1
 
@@ -1495,16 +1457,12 @@ def foreground(plugin, layer):
 					masterValues = copy.copy(plugin.masterValues)
 					for layer in rightGlyph.layers:
 						coordinates  = None
-						if Glyphs.buildNumber > 3000:
-							if layer.attributes is not None and 'coordinates' in layer.attributes:
-								coordinates = []
-								coordinatesAttribut = layer.attributes['coordinates']
-								for axis in font.axes:
-									axisValue = coordinatesAttribut[axis.axisId]
-									coordinates.append(axisValue)
-						else:
-							if '{' in layer.name and '}' in layer.name:
-								coordinates = list(map(int, layer.name.split('{')[1].split('}')[0].split(',')))
+						if layer.attributes is not None and 'coordinates' in layer.attributes:
+							coordinates = []
+							coordinatesAttribut = layer.attributes['coordinates']
+							for axis in font.axes:
+								axisValue = coordinatesAttribut[axis.axisId]
+								coordinates.append(axisValue)
 						
 						if coordinates:
 							if len(coordinates) == 1:
