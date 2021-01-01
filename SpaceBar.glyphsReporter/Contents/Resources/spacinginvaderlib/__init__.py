@@ -123,7 +123,7 @@ def GSGlyph_MasterLayers(self):
 		for layer in self.layers:
 			firstAxisValue = None
 			if layer.isMasterLayer:
-				firstAxisValue = self.parent.masters[layer.layerId].axes[0]
+				firstAxisValue = layer.master.axes[0]
 			elif 'coordinates' in layer.attributes:
 				firstAxis = self.parent.axes[0]
 				firstAxisValue = layer.attributes['coordinates'].get(firstAxis.axisId, None)
@@ -1054,15 +1054,15 @@ def getKerning(master, leftGlyph, rightGlyph):
 	kerningExceptionRight = font.kerningForPair(master.id, leftGlyph.rightKerningKey, rightGlyph.name)
 	kerningExceptionBoth = font.kerningForPair(master.id, leftGlyph.name, rightGlyph.name)
 	exception = False
-	if _kerning > 1000000000:
+	if _kerning is None:
 		_kerning = 0
-	if kerningExceptionLeft < 1000000000:
+	if kerningExceptionLeft is not None:
 		_kerning = kerningExceptionLeft
 		exception = True
-	if kerningExceptionRight < 1000000000:
+	if kerningExceptionRight is not None:
 		_kerning = kerningExceptionRight
 		exception = True
-	if kerningExceptionBoth < 1000000000:
+	if kerningExceptionBoth is not None:
 		_kerning = kerningExceptionBoth
 		exception = True
 	return (_kerning, exception)
@@ -1077,7 +1077,7 @@ def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activ
 	for master in font.masters:
 		pairHasKerning = False
 		kerning = font.kerningForPair(master.id, leftGlyph.rightKerningKey, rightGlyph.leftKerningKey)
-		if kerning > 10000000000:
+		if kerning is None:
 			kerning = 0
 		if kerning != 0:
 			pairHasKerning = True
