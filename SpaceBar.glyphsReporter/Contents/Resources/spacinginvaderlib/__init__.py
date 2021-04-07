@@ -1,7 +1,9 @@
 # encoding: utf-8
 from __future__ import print_function, unicode_literals
 
-
+# ###delete
+# import inspect
+# ###delete
 
 
 import copy, traceback, time, os, objc
@@ -314,7 +316,12 @@ class Area(object):
 		return '<Area %s>' % (self.title)
 
 	def addValue(self, value):
-
+		# ###delete
+		# print()
+		# print(f">>> parent lineno {inspect.stack()[1][2]}, lineno {inspect.stack()[0][2]}, parent {inspect.stack()[1][3]}, function {inspect.stack()[0][3]}")
+		# print(value)
+		# print()
+		# ###delete
 		if value.layer not in self.values:
 			self.values[value.layer] = []
 
@@ -566,6 +573,12 @@ class Area(object):
 		for masterValue in masterValues:
 			
 			masterValue = copy.copy(masterValue)
+			###delete
+			# print()
+			# print()
+			# print(masterValue, masterValue.x)
+			# print(self.values['foreground'])
+			###delete
 			instanceValue = self.values['foreground'][int(masterValue.x)]
 			masterValue.y = instanceValue.y
 			nachKomma = masterValue.x % 1.0
@@ -851,7 +864,7 @@ def drawValuesInInterpolationSpace(font, display, area, masterLayers, positiveCo
 			elif int(round(sbValue)) > 0 and positiveColor:
 				value.color = positiveColor
 
-		instanceCount+=1
+		instanceCount += 1
 
 
 
@@ -1098,9 +1111,9 @@ def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activ
 
 
 		elif mode == 'instances':
-
 			instanceCount = 0
 			for instance in font.instances:
+
 				if GSInstance_ShowInPanel(instance, plugin):
 					a = instance.interpolatedFontProxy.glyphForName_(leftGlyph.name)
 					b = instance.interpolatedFontProxy.glyphForName_(rightGlyph.name)
@@ -1254,6 +1267,14 @@ def foreground(plugin, layer):
 										value.color = UNSELECTEDMASTERCOLOR
 										value.layer = 'background'
 										value.associatedObject = master
+										# ###delete
+										# print()
+										# print("**")
+										# print(f">>> parent lineno {inspect.stack()[1][2]}, lineno {inspect.stack()[0][2]}, parent {inspect.stack()[1][3]}, function {inspect.stack()[0][3]}")
+										# print(value)
+										# print("**")
+										# print()
+										# ###delete
 										plugin.masterValues.append(value)
 								#		instanceCount += 1
 
@@ -1273,6 +1294,14 @@ def foreground(plugin, layer):
 									value.color = UNSELECTEDMASTERCOLOR
 									value.layer = 'background'
 									value.associatedObject = newInstanceMasters[0]
+									# ###delete
+									# print()
+									# print("***")
+									# print(f">>> parent lineno {inspect.stack()[1][2]}, lineno {inspect.stack()[0][2]}, parent {inspect.stack()[1][3]}, function {inspect.stack()[0][3]}")
+									# print(value)
+									# print("***")
+									# print()
+									# ###delete
 									plugin.masterValues.append(value)
 							instanceCount += 1
 
@@ -1373,6 +1402,14 @@ def foreground(plugin, layer):
 											value.layer = 'background'
 											if leftLayer == layer:
 												value.associatedObject = layer
+											# ###delete
+											# print()
+											# print("--")
+											# print(f">>> parent lineno {inspect.stack()[1][2]}, lineno {inspect.stack()[0][2]}, parent {inspect.stack()[1][3]}, function {inspect.stack()[0][3]}")
+											# print(value)
+											# print("--")
+											# print()
+											# ###delete
 											masterValues.insert(0, value)
 
 							elif len(interpolationValues) == 2:
@@ -1386,6 +1423,14 @@ def foreground(plugin, layer):
 												value.layer = 'background'
 												if leftLayer == layer:
 													value.associatedObject = layer
+												# ###delete
+												# print()
+												# print("---")
+												# print(f">>> parent lineno {inspect.stack()[1][2]}, lineno {inspect.stack()[0][2]}, parent {inspect.stack()[1][3]}, function {inspect.stack()[0][3]}")
+												# print(value)
+												# print("---")
+												# print()
+												# ###delete
 												masterValues.insert(0, value)
 
 					# Draw
