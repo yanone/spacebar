@@ -1137,8 +1137,9 @@ def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activ
 					kerningArea.addValue(value)
 
 
-				# Add masters
-				kerningArea.addMasterValues(masterValues, font, activeLayer, None)
+
+			# Add masters
+			kerningArea.addMasterValues(masterValues, font, activeLayer, None)
 
 
 	return kerningArea
