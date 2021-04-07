@@ -33,6 +33,8 @@ If you want to see any changes in Space Bar, either make them yourselves and sen
 
 # Version History
 
+v1.11 (April 2021): Fixed kerning carshing in instance mode
+
 v1.08 (April 2020): Fixed order and position of value display in the master view
 
 v1.07 (March 2020): Re-released as open source
