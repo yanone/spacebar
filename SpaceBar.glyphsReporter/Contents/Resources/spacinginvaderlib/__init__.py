@@ -1365,6 +1365,7 @@ def foreground(plugin, layer):
 					leftLayersWithoutDeviations = []
 					glyphHasDeviations = False
 					for layer in leftGlyph.layers:
+						if layer.name is None: continue ### if layer has no name, then skip it
 						if '[' in layer.name or ']' in layer.name or '{' in layer.name:
 							glyphHasDeviations = True
 							break
@@ -1389,6 +1390,7 @@ def foreground(plugin, layer):
 
 					masterValues = copy.copy(plugin.masterValues)
 					for layer in leftGlyph.layers:
+						if layer.name is None: continue ### if layer has no name, then skip it
 						if '{' in layer.name and '}' in layer.name:
 							interpolationValues = map(int, layer.name.split('{')[1].split('}')[0].split(','))
 
@@ -1479,6 +1481,7 @@ def foreground(plugin, layer):
 					rightLayersWithoutDeviations = []
 					glyphHasDeviations = False
 					for layer in rightGlyph.layers:
+						if layer.name is None: continue ### if layer has no name, then skip it
 						if '[' in layer.name or ']' in layer.name or '{' in layer.name:
 							glyphHasDeviations = True
 							break
