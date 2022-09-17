@@ -80,7 +80,7 @@ def CleanFloat(number, locale = 'en'):
 		if number % 1 == 0:
 			return str(int(number))
 		else:
-			return str(float(number))
+			return "%0.1f" % number
 	except:
 		return number
 
