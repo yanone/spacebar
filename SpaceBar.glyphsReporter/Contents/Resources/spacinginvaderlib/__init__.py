@@ -7,7 +7,7 @@ from __future__ import print_function, unicode_literals
 
 
 import copy, traceback, time, os, objc
-from GlyphsApp import Glyphs, GSGlyph, GSFont, GSInstance, MOUSEMOVED, RTL, Message
+from GlyphsApp import Glyphs, GSGlyph, GSFont, GSInstance, MOUSEMOVED, GSRTL, Message
 import GlyphsApp.plugins
 from AppKit import NSDictionary, NSBezierPath, NSPoint, NSColor, NSRect, NSHomeDirectory, NSImage, NSSize, NSZeroRect, NSCompositeSourceOver, NSMenuItem, NSMenu, NSWorkspace, NSURL, NSBundle, NSOnState
 import plistlib
@@ -1333,7 +1333,7 @@ def foreground(plugin, layer):
 				rightLayer = cachedGlyphs[textCursor]
 
 			# Change order for RTL
-			if tab.direction == RTL:
+			if tab.direction == GSRTL:
 				leftGlyph, rightGlyph = rightGlyph, leftGlyph
 				leftLayer, rightLayer = rightLayer, leftLayer
 
