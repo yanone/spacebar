@@ -13,9 +13,9 @@
 	<key>CFBundleName</key>
 	<string>SpaceBar</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.12</string>
+	<string>1.13</string>
 	<key>CFBundleVersion</key>
-	<string>13</string>
+	<string>14</string>
 	<key>productPageURL</key>
 	<string>https://yanone.de/software/spacebar/</string>
 	<key>NSHumanReadableCopyright</key>
