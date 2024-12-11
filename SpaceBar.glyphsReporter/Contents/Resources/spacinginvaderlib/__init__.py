@@ -6,14 +6,12 @@ from __future__ import print_function, unicode_literals
 # ###delete
 
 
-import copy, traceback, time, os, objc
-from GlyphsApp import Glyphs, GSGlyph, GSFont, GSInstance, MOUSEMOVED, GSRTL, Message
-import GlyphsApp.plugins
-from AppKit import NSDictionary, NSBezierPath, NSPoint, NSColor, NSRect, NSHomeDirectory, NSImage, NSSize, NSZeroRect, NSCompositeSourceOver, NSMenuItem, NSMenu, NSWorkspace, NSURL, NSBundle, NSOnState
-import plistlib
+import copy
+import traceback
+import time
+from GlyphsApp import GSRTL, GSGlyph, GSFontMaster, GSLayer
 
-plist = NSDictionary.dictionaryWithContentsOfFile_(os.path.join(os.path.dirname(__file__), '..', '..', 'Info.plist'))
-VERSION = plist['CFBundleShortVersionString']
+from AppKit import NSBezierPath, NSPoint, NSColor, NSRect, NSHomeDirectory, NSImage, NSSize, NSZeroRect, NSCompositeSourceOver
 
 
 PAGEMARGIN = 8
@@ -54,26 +52,26 @@ DEVIATIONCOLOR = (233, 93, 15)
 DEVIATIONORIGINALCOLOR = (120, 120, 120)
 
 
-ORIGIN = 'top' # topright, topleft, top, left, right, bottomleft, bottomright, bottom
+ORIGIN = 'top'  # topright, topleft, top, left, right, bottomleft, bottomright, bottom
 
 alignment = {
-	'topleft': 6, 
-	'topcenter': 7, 
+	'topleft': 6,
+	'topcenter': 7,
 	'topright': 8,
-	'left': 3, 
-	'center': 4, 
-	'right': 5, 
-	'bottomleft': 0, 
-	'bottomcenter': 1, 
+	'left': 3,
+	'center': 4,
+	'right': 5,
+	'bottomleft': 0,
+	'bottomcenter': 1,
 	'bottomright': 2
-	}
+}
 
 
 areaCache = {}
 
 
-def CleanFloat(number, locale = 'en'):
-	u"""\
+def CleanFloat(number, locale='en'):
+	"""\
 	Return number without decimal points if .0, otherwise with .x)
 	"""
 	try:
@@ -89,17 +87,17 @@ def NormalizeMinMax(source_floor, source_ceiling, target_floor, target_ceiling, 
 	u"""\
 	Normalize a value from source scale to target scale.
 	"""
-	
+
 	source_floor, source_ceiling, target_floor, target_ceiling, value = map(float, (source_floor, source_ceiling, target_floor, target_ceiling, value))
 
 	if target_floor == 0:
-		return (value - source_floor)/(source_ceiling - source_floor) * target_ceiling
+		return (value - source_floor) / (source_ceiling - source_floor) * target_ceiling
 	else:
-		return (value - source_floor)/(source_ceiling - source_floor) * (target_ceiling - target_floor) + target_floor
+		return (value - source_floor) / (source_ceiling - source_floor) * (target_ceiling - target_floor) + target_floor
 
 
-def Interpolate(a, b, p, limit = False):
-	u"""\
+def Interpolate(a, b, p, limit=False):
+	"""\
 	Interpolate between values a and b at float position p (0-1)
 	Limit: No extrapolation
 	"""
@@ -118,12 +116,13 @@ def Interpolate(a, b, p, limit = False):
 
 
 def GSGlyph_MasterLayers(self):
-	
+
 	layers = []
 	for layer in self.layers:
 		firstAxisValue = None
 		if layer.isMasterLayer:
-			firstAxisValue = layer.master.axes[0]
+			if len(layer.master.axes) > 0:
+				firstAxisValue = layer.master.axes[0]
 		elif 'coordinates' in layer.attributes:
 			firstAxis = self.parent.axes[0]
 			firstAxisValue = layer.attributes['coordinates'].get(firstAxis.axisId, None)
@@ -133,47 +132,52 @@ def GSGlyph_MasterLayers(self):
 	layers.sort(key=lambda x: x[0], reverse=False)
 	return layers
 
+
 def GSGlyph_ChangeString(self):
-	
+
 	string = self.name
 	for layer in self.layers:
 		string += '%s-%s' % (str(layer.bounds), layer.width)
 
 	return string
 
+
 def GSFont_MasterLayers(self):
-	
+
 	layers = []
-	
+
 	for master in self.masters:
 		layers.append([master.axes[0], master])
-	
-#	layers.sort(key=lambda x: x[0], reverse=False)
-	
+
+	# layers.sort(key=lambda x: x[0], reverse=False)
+
 	return layers
 
+
 def GSFont_ActiveInstances(self):
-	
+
 	instances = []
-	
+
 	for instance in self.instances:
 		if instance.active:
 			instances.append(instance)
-	
-	
+
 	return instances
 
+
 def GSFont_VisibleInstances(self, plugin):
-	
+
 	instances = []
-	
+
 	for instance in self.instances:
 		if GSInstance_ShowInPanel(instance, plugin):
 			instances.append(instance)
 	return instances
 
+
 def GSInstance_ShowInPanel(self, plugin):
-	return plugin.getPreference('onlyActiveInstances') == False or plugin.getPreference('onlyActiveInstances') == True and self.active == True
+	return not plugin.getPreference('onlyActiveInstances') or plugin.getPreference('onlyActiveInstances') and self.active
+
 
 def GSInstance_SortedInterpolationValues(self):
 
@@ -187,7 +191,7 @@ def GSInstance_SortedInterpolationValues(self):
 
 
 class Line(object):
-	def __init__(self, x1, y1, x2, y2, color = LINECOLOR, strokeWidth = 1.0):
+	def __init__(self, x1, y1, x2, y2, color=LINECOLOR, strokeWidth=1.0):
 		self.x1 = x1
 		self.y1 = y1
 		self.x2 = x2
@@ -209,8 +213,6 @@ class Line(object):
 		self.path.stroke()
 
 
-
-
 class Dot(object):
 	def __init__(self, plugin, x, y, y2=None, color=(0, 0, 0), size=POINTSIZESMALL, label=None, associatedValue=None):
 		self.plugin = plugin
@@ -222,7 +224,6 @@ class Dot(object):
 		self.label = label
 		self.associatedValue = associatedValue
 
-
 		self.path = None
 		self.labelObject = None
 
@@ -231,14 +232,13 @@ class Dot(object):
 		hasValue = False
 		if self.associatedValue:
 			hasValue = True
-			if self.associatedValue.y == None:
+			if self.associatedValue.y is None:
 				hasValue = False
-
 
 		# Deviation dot
 		if self.y2:
 			NSColor.colorWithDeviceRed_green_blue_alpha_(DEVIATIONCOLOR[0] / 255.0, DEVIATIONCOLOR[1] / 255.0, DEVIATIONCOLOR[2] / 255.0, 1.0).set()
-			
+
 			self.path = NSBezierPath.alloc().init()
 			self.path.appendBezierPathWithOvalInRect_(NSRect(NSPoint(self.x - (self.size * 1.5) / 2.0, self.y2 - (self.size * 1.5) / 2.0), NSPoint((self.size * 1.5), (self.size * 1.5))))
 
@@ -247,10 +247,9 @@ class Dot(object):
 			else:
 				self.path.stroke()
 
-
 		# Black dot
 		NSColor.colorWithDeviceRed_green_blue_alpha_(self.color[0] / 255.0, self.color[1] / 255.0, self.color[2] / 255.0, 1.0).set()
-		
+
 		self.path = NSBezierPath.alloc().init()
 		self.path.appendBezierPathWithOvalInRect_(NSRect(NSPoint(self.x - self.size / 2.0, self.y - self.size / 2.0), NSPoint(self.size, self.size)))
 
@@ -259,20 +258,18 @@ class Dot(object):
 		else:
 			self.path.stroke()
 
-
-
-		if self.label != 0 and self.label != None and self.label != '':
-			self.plugin.drawTextAtPoint(CleanFloat(self.label), NSPoint(self.x, self.y - 20), fontSize = 10 * tab.scale, align = 'center')
-#			string = NSString.alloc().initWithString_(str(self.label))
-#			string = NSString.alloc().stringWithString_(str(self.label))
-			#string = NSString.alloc().init()
-			#string = self.label
-#			string.string_(str(self.label))
-#			string.drawAtPoint_color_alignment_(NSPoint(self.x, self.y - 20), NSColor.blackColor(), 'left')
+		if self.label != 0 and self.label is not None and self.label != '':
+			self.plugin.drawTextAtPoint(CleanFloat(self.label), NSPoint(self.x, self.y - 20), fontSize=10 * tab.scale, align='center')
+			# string = NSString.alloc().initWithString_(str(self.label))
+			# string = NSString.alloc().stringWithString_(str(self.label))
+			# string = NSString.alloc().init()
+			# string = self.label
+			# string.string_(str(self.label))
+			# string.drawAtPoint_color_alignment_(NSPoint(self.x, self.y - 20), NSColor.blackColor(), 'left')
 
 
 class Value(object):
-	def __init__(self, x, y, color = (0, 0, 0), size = POINTSIZESMALL, label = None, layer = 'foreground', associatedObject = None):
+	def __init__(self, x, y, color=(0, 0, 0), size=POINTSIZESMALL, label=None, layer='foreground', associatedObject=None):
 		self.x = x
 		self.y = y
 		self.y2 = None
@@ -287,7 +284,7 @@ class Value(object):
 
 
 class Area(object):
-	def __init__(self, w, h, title = None, titleAlign = 'left', widthAdjust = 1.0, bgColor = None, infoText = None):
+	def __init__(self, w, h, title=None, titleAlign='left', widthAdjust=1.0, bgColor=None, infoText=None):
 		self.w = w
 		self.h = h
 		self.widthAdjust = widthAdjust
@@ -327,14 +324,14 @@ class Area(object):
 
 		self.values[value.layer].append(value)
 
-		if self.xMin == None:
+		if self.xMin is None:
 			self.xMin = value.x
-		if self.xMax == None:
+		if self.xMax is None:
 			self.xMax = value.x
 
-		if self.yMin == None:
+		if self.yMin is None:
 			self.yMin = value.y
-		if self.yMax == None:
+		if self.yMax is None:
 			self.yMax = value.y
 
 		self.xMin = min(self.xMin or 0, value.x or 0)
@@ -347,7 +344,6 @@ class Area(object):
 		self.xScope = self.xMax - self.xMin
 		self.yScope = self.yMax - self.yMin
 
-
 	def height(self):
 		if self.title:
 			return self.h + AREATITLEHEIGHT
@@ -357,7 +353,7 @@ class Area(object):
 	def drawingArea(self):
 
 		left, bottom, width, height = self.position()
-#		top = bottom + height
+		# top = bottom + height
 
 		factor = 3
 
@@ -373,7 +369,7 @@ class Area(object):
 	def position(self):
 
 		bottom = self.top - self.height()
-#		top = bottom + self.height()
+		# top = bottom + self.height()
 		width = int(self.w * self.widthAdjust)
 		height = self.height()
 
@@ -390,18 +386,20 @@ class Area(object):
 
 	def active(self):
 		return
-
-		if self.isMouseOver == False:
+		"""
+		if not self.isMouseOver:
 			self.isMouseOver = True
 			Glyphs.redraw()
-#			print self.title
+			# print self.title
+		"""
 
 	def inactive(self):
 		return
-
-		if self.isMouseOver == True:
+		"""
+		if self.isMouseOver:
 			self.isMouseOver = False
 			Glyphs.redraw()
+		"""
 
 	def draw(self, font):
 
@@ -409,7 +407,7 @@ class Area(object):
 		left, bottom, width, height = position
 
 		if width and height and not self.image:
-#		if True:
+			# if True:
 
 			self.image = NSImage.alloc().initWithSize_(NSSize(width, height))
 			self.image.lockFocus()
@@ -418,8 +416,7 @@ class Area(object):
 
 		if self.image:
 			self.image.drawAtPoint_fromRect_operation_fraction_(NSPoint(left, bottom), NSZeroRect, NSCompositeSourceOver, 1.0)
-#		font.currentTab.graphicView().addSubview_(self.view)
-
+		# font.currentTab.graphicView().addSubview_(self.view)
 
 	def _draw(self, font, position):
 
@@ -432,7 +429,6 @@ class Area(object):
 		left = 0
 		bottom = 0
 		top = bottom + height
-
 
 		# Background
 		if self.title:
@@ -447,19 +443,18 @@ class Area(object):
 				else:
 					NSColor.colorWithDeviceRed_green_blue_alpha_(AREAGRAYVALUE, AREAGRAYVALUE, AREAGRAYVALUE, AREATRANSPARENCY).set()
 			path.fill()
-	#		NSColor.colorWithDeviceRed_green_blue_alpha_(.5, .5, .5, .5).set()
-	#		path.stroke()
-
+			# NSColor.colorWithDeviceRed_green_blue_alpha_(.5, .5, .5, .5).set()
+			# path.stroke()
 
 		# Title
 		if self.title:
 			topAdjust = 7
 			if self.titleAlign == 'left':
-				self.parent.plugin.drawTextAtPoint(self.title, NSPoint(left + AREAINNERMARGIN, top - AREAINNERMARGIN - topAdjust), fontSize = 10 * tab.scale, align = self.titleAlign)
+				self.parent.plugin.drawTextAtPoint(self.title, NSPoint(left + AREAINNERMARGIN, top - AREAINNERMARGIN - topAdjust), fontSize=10 * tab.scale, align=self.titleAlign)
 			elif self.titleAlign == 'center':
-				self.parent.plugin.drawTextAtPoint(self.title, NSPoint(left + width / 2.0, top - AREAINNERMARGIN - topAdjust), fontSize = 10 * tab.scale, align = self.titleAlign)
+				self.parent.plugin.drawTextAtPoint(self.title, NSPoint(left + width / 2.0, top - AREAINNERMARGIN - topAdjust), fontSize=10 * tab.scale, align=self.titleAlign)
 			else:
-				self.parent.plugin.drawTextAtPoint(self.title, NSPoint(left - AREAINNERMARGIN + width, top - AREAINNERMARGIN - topAdjust), fontSize = 10 * tab.scale, align = self.titleAlign)
+				self.parent.plugin.drawTextAtPoint(self.title, NSPoint(left - AREAINNERMARGIN + width, top - AREAINNERMARGIN - topAdjust), fontSize=10 * tab.scale, align=self.titleAlign)
 
 		if False:
 			drawingArea = self.drawingArea()
@@ -468,62 +463,54 @@ class Area(object):
 			NSColor.colorWithDeviceRed_green_blue_alpha_(.5, .5, .5, .5).set()
 			path.stroke()
 
-
 		# Draw values
 
 		left, bottom, width, height = self.drawingArea()
 		left -= position[0]
 		bottom -= position[1]
 
-
 		if self.infoText:
-			self.parent.plugin.drawTextAtPoint(self.infoText, NSPoint(left - 15, bottom - 20), fontSize = 10 * tab.scale, align = 'bottomleft')
-
-
+			self.parent.plugin.drawTextAtPoint(self.infoText, NSPoint(left - 15, bottom - 20), fontSize=10 * tab.scale, align='bottomleft')
 		else:
 
-
-#			lastDot = None
+			# lastDot = None
 
 			dots = []
 
-			if self.yMin != None and self.yMax != None:
+			if self.yMin is not None and self.yMax is not None:
 
 				xScopeAdjust = 1.0
 				xMedian = 0
 				if self.xScope > 0:
 					xMedian = self.xMin + self.xScope / 2.0
-	#				if self.xScope > width:
+					# if self.xScope > width:
 					xScopeAdjust = width / float(self.xScope)
 					xMedian = xMedian / xScopeAdjust
 
 				yScopeAdjust = 1.0
-#				yMedian = 0
+				# yMedian = 0
 				if self.yScope > 0:
-#					yMedian = self.yMin + self.yScope / 2.0
+					# yMedian = self.yMin + self.yScope / 2.0
 					if self.yScope > height:
 						yScopeAdjust = height / float(self.yScope)
-
 
 				# horizontal point zero line
 				y = bottom + (0 - self.yMin) * yScopeAdjust
 				if bottom + AREACORNERRADIUS <= y <= bottom + height - AREACORNERRADIUS:
-					line = Line(0, y, width * xScopeAdjust, y, strokeWidth = .25)
+					line = Line(0, y, width * xScopeAdjust, y, strokeWidth=.25)
 					line.draw()
 
 				# vertical master position line
-	#			x = left + (font.masters[font.masterIndex].axes[0] - self.xMin) * xScopeAdjust
-	#			line = Line(Dot(self.parent.plugin, x, position[1]), Dot(self.parent.plugin, x, position[1] + position[3]), strokeWidth = .25)
-	#			line.draw()
+				# x = left + (font.masters[font.masterIndex].axes[0] - self.xMin) * xScopeAdjust
+				# line = Line(Dot(self.parent.plugin, x, position[1]), Dot(self.parent.plugin, x, position[1] + position[3]), strokeWidth = .25)
+				# line.draw()
 
 				for value in self.values['background']:
 					x = left + ((value.x or 0) - self.xMin) * xScopeAdjust
 					y = bottom + ((value.y or 0) - self.yMin) * yScopeAdjust
-					dot = Dot(self.parent.plugin, x, y, color = value.color, size = value.size, label = value.label)
+					dot = Dot(self.parent.plugin, x, y, color=value.color, size=value.size, label=value.label)
 					dot.associatedValue = value
 					dot.draw(tab)
-
-
 
 				for i, value in enumerate(self.values['foreground']):
 
@@ -534,44 +521,43 @@ class Area(object):
 					else:
 						y2 = None
 
-					dot = Dot(self.parent.plugin, x, y, y2 = y2, color = value.color, size = value.size, label = value.label)
+					dot = Dot(self.parent.plugin, x, y, y2=y2, color=value.color, size=value.size, label=value.label)
 					dot.associatedValue = value
 					dots.append(dot)
 
 			for i in range(len(dots) - 1):
 				dot1 = dots[i]
-				dot2 = dots[i+1]
-		
+				dot2 = dots[i + 1]
+
 				if not dot1.y2 and not dot2.y2:
-					line = Line(dots[i].x, dots[i].y, dots[i+1].x, dots[i+1].y)
+					line = Line(dots[i].x, dots[i].y, dots[i + 1].x, dots[i + 1].y)
 					line.draw()
 
 				if dot1.y2 and not dot2.y2:
-					line = Line(dots[i].x, dots[i].y2, dots[i+1].x, dots[i+1].y, color = DEVIATIONCOLOR)
+					line = Line(dots[i].x, dots[i].y2, dots[i + 1].x, dots[i + 1].y, color=DEVIATIONCOLOR)
 					line.draw()
-					line = Line(dots[i].x, dots[i].y, dots[i+1].x, dots[i+1].y)
+					line = Line(dots[i].x, dots[i].y, dots[i + 1].x, dots[i + 1].y)
 					line.draw()
 
 				if not dot1.y2 and dot2.y2:
-					line = Line(dots[i].x, dots[i].y, dots[i+1].x, dots[i+1].y2, color = DEVIATIONCOLOR)
+					line = Line(dots[i].x, dots[i].y, dots[i + 1].x, dots[i + 1].y2, color=DEVIATIONCOLOR)
 					line.draw()
-					line = Line(dots[i].x, dots[i].y, dots[i+1].x, dots[i+1].y)
+					line = Line(dots[i].x, dots[i].y, dots[i + 1].x, dots[i + 1].y)
 					line.draw()
 
 				if dot1.y2 and dot2.y2:
-					line = Line(dots[i].x, dots[i].y2, dots[i+1].x, dots[i+1].y2, color = DEVIATIONCOLOR)
+					line = Line(dots[i].x, dots[i].y2, dots[i + 1].x, dots[i + 1].y2, color=DEVIATIONCOLOR)
 					line.draw()
-					line = Line(dots[i].x, dots[i].y, dots[i+1].x, dots[i+1].y)
+					line = Line(dots[i].x, dots[i].y, dots[i + 1].x, dots[i + 1].y)
 					line.draw()
 
 			for dot in dots:
 				dot.draw(tab)
 
-
 	def addMasterValues(self, masterValues, font, activeLayer, glyphSideOnDisplay):
 		activeLayerChosen = False
 		for masterValue in masterValues:
-			
+
 			masterValue = copy.copy(masterValue)
 			###delete
 			# print()
@@ -582,7 +568,7 @@ class Area(object):
 			instanceValue = self.values['foreground'][int(masterValue.x)]
 			masterValue.y = instanceValue.y
 			nachKomma = masterValue.x % 1.0
-			
+
 			if masterValue.x and nachKomma != 0.0:
 				instanceValue2 = self.values['foreground'][int(masterValue.x) + 1]
 				if instanceValue.y2 and instanceValue2.y2:
@@ -601,7 +587,7 @@ class Area(object):
 				masterValue.color = UNSELECTEDMASTERCOLOR
 
 			if activeLayer == masterValue.associatedObject:
-#				print activeLayer, 'chosen'
+				# print activeLayer, 'chosen'
 				masterValue.size = SELECTEDMASTERSIZE
 				if glyphSideOnDisplay:
 					masterValue.color = ACTIVEMASTERCOLOR[glyphSideOnDisplay]
@@ -609,8 +595,8 @@ class Area(object):
 					masterValue.color = SELECTEDMASTERCOLOR
 				activeLayerChosen = True
 
-			if not activeLayerChosen and font.masters[activeLayer.associatedMasterId] == masterValue.associatedObject:# or activeLayer == masterValue.associatedObject:
-#				print activeLayer, 'chosen'
+			if not activeLayerChosen and font.masters[activeLayer.associatedMasterId] == masterValue.associatedObject:  # or activeLayer == masterValue.associatedObject:
+				# print activeLayer, 'chosen'
 				masterValue.size = SELECTEDMASTERSIZE
 				if glyphSideOnDisplay:
 					masterValue.color = ACTIVEMASTERCOLOR[glyphSideOnDisplay]
@@ -649,32 +635,28 @@ class Display(object):
 			widthSum += (len(self.areas) - 1) * AREAOUTERMARGIN
 
 			widthAdjust = 1.0
-			if widthSum + 2*PAGEMARGIN > tabViewPortSize.width:
-				widthAdjust = (tabViewPortSize.width - 2*PAGEMARGIN) / float(widthSum)
+			if widthSum + 2 * PAGEMARGIN > tabViewPortSize.width:
+				widthAdjust = (tabViewPortSize.width - 2 * PAGEMARGIN) / float(widthSum)
 				widthSum *= widthAdjust
-
 
 			if ORIGIN == 'top':
 				top = tab.viewPort.origin.y + tabViewPortSize.height - PAGEMARGIN
-				
+
 				width = tabViewPortSize.width
 				leftBorder = int(tab.viewPort.origin.x + width / 2.0 - widthSum / 2.0)
-	#			print leftBorder
+				# print leftBorder
 
 				# Draw a blue rectangle all across the Edit View's visible area
-	#			NSColor.blueColor().set()
-	#			NSBezierPath.strokeRect_(NSRect(NSPoint(leftBorder, Glyphs.font.currentTab.viewPort.origin.y), NSPoint(width, Glyphs.font.currentTab.viewPort.size.height)))
-
-
-				# Draw a blue rectangle all across the Edit View's visible area
-	#			NSColor.blueColor().set()
-	#			NSBezierPath.strokeRect_(NSRect(NSPoint(leftBorder, Glyphs.font.currentTab.viewPort.origin.y), NSPoint(width, Glyphs.font.currentTab.viewPort.size.height)))
+				# NSColor.blueColor().set()
+				# NSBezierPath.strokeRect_(NSRect(NSPoint(leftBorder, Glyphs.font.currentTab.viewPort.origin.y), NSPoint(width, Glyphs.font.currentTab.viewPort.size.height)))
 
 				# Draw a blue rectangle all across the Edit View's visible area
-	#			NSColor.blueColor().set()
-	#			NSBezierPath.strokeRect_(NSRect(NSPoint(leftBorder, top - self.areas[0].height()), NSPoint(widthSum, self.areas[0].height())))
+				# NSColor.blueColor().set()
+				# NSBezierPath.strokeRect_(NSRect(NSPoint(leftBorder, Glyphs.font.currentTab.viewPort.origin.y), NSPoint(width, Glyphs.font.currentTab.viewPort.size.height)))
 
-
+				# Draw a blue rectangle all across the Edit View's visible area
+				# NSColor.blueColor().set()
+				# NSBezierPath.strokeRect_(NSRect(NSPoint(leftBorder, top - self.areas[0].height()), NSPoint(widthSum, self.areas[0].height())))
 
 				# Draw a white rectangle all across the Edit View's visible area
 				#NSColor.whiteColor().set()
@@ -683,7 +665,7 @@ class Display(object):
 					height = self.areas[0].height() + 2 * PAGEMARGIN
 					NSBezierPath.fillRect_(NSRect(NSPoint(leftBorder, tab.viewPort.origin.y + tab.viewPort.size.height - height), NSPoint(width, height)))
 
-	#				x = tab.viewPort.origin.x + (tabViewPortSize.width / 2.0 - widthSum / 2.0) * widthAdjust
+					# x = tab.viewPort.origin.x + (tabViewPortSize.width / 2.0 - widthSum / 2.0) * widthAdjust
 
 					left = 0
 					for area in self.areas:
@@ -692,17 +674,10 @@ class Display(object):
 						area.widthAdjust = widthAdjust
 						area.draw(font)
 
-
-						#top += area.height() + AREAOUTERMARGIN
+						# top += area.height() + AREAOUTERMARGIN
 						left += area.w * widthAdjust + AREAOUTERMARGIN
-	#					left -= left % 2
-	#					left += 2
-
-
-
-
-
-
+						# left -= left % 2
+						# left += 2
 
 			if ORIGIN == 'bottom':
 				top = tab.viewPort.origin.y + PAGEMARGIN + self.areas[0].height()
@@ -717,20 +692,17 @@ class Display(object):
 					left += area.w + AREAOUTERMARGIN
 
 
-
-def drawValuesInInterpolationSpace(font, display, area, masterLayers, positiveColor = None, negativeColor = None, glyphSide = 'left', activeLayer = None):
-
-
+def drawValuesInInterpolationSpace(font, display, area, masterLayers, positiveColor=None, negativeColor=None, glyphSide='left', activeLayer=None):
 
 	# Draw masters
 
 	layersDrawn = []
-#	masterDots = []
+	# masterDots = []
 	layersToDots = {}
 
 	for weightValue, layer, interpolatedValue in masterLayers:
 
-		if not layer in layersDrawn:
+		if layer not in layersDrawn:
 
 			for instance in font.instances:
 
@@ -746,12 +718,12 @@ def drawValuesInInterpolationSpace(font, display, area, masterLayers, positiveCo
 
 					area.addValue(value)
 					layersDrawn.append(layer)
-#					masterDots = value
+					# masterDots = value
 					layersToDots[layer] = value
 
-			for i in range(len(font.instances)-1):
+			for i in range(len(font.instances) - 1):
 				firstInstance = font.instances[i]
-				secondInstance = font.instances[i+1]
+				secondInstance = font.instances[i + 1]
 
 				if firstInstance.axes[0] < weightValue < secondInstance.axes[0]:
 
@@ -772,16 +744,15 @@ def drawValuesInInterpolationSpace(font, display, area, masterLayers, positiveCo
 
 	# select master by layer object
 	if activeLayer:
-#		print 'layer', layer
+		# print 'layer', layer
 		for key in layersToDots.keys():
 			if activeLayer == key:
-#				print 'key', key
+				# print 'key', key
 				value = layersToDots[key]
 				value.size = SELECTEDMASTERSIZE
 				value.color = SELECTEDMASTERCOLOR
 				masterSelected = True
 				break
-#
 
 	if not masterSelected:
 		for key in layersToDots.keys():
@@ -795,17 +766,10 @@ def drawValuesInInterpolationSpace(font, display, area, masterLayers, positiveCo
 	if not masterSelected:
 		for key in layersToDots.keys():
 
-			if ('GSFontMaster' in key.__class__.__name__ and font.selectedFontMaster.id == key.id) or ('GSLayer' in key.__class__.__name__ and font.selectedFontMaster.id == key.layerId):
+			if (isinstance(key, GSFontMaster) and font.selectedFontMaster.id == key.id) or (isinstance(key, GSLayer) and font.selectedFontMaster.id == key.layerId):
 				value = layersToDots[key]
 				value.color = SELECTEDMASTERCOLOR
 				value.size = SELECTEDMASTERSIZE
-
-
-
-
-
-
-
 
 	# Draw actual values
 
@@ -813,8 +777,7 @@ def drawValuesInInterpolationSpace(font, display, area, masterLayers, positiveCo
 
 	for instance in font.instances:
 
-
-		# Extrapolation 
+		# Extrapolation
 		if instance.axes[0] < masterLayers[0][0]:
 
 			l1 = masterLayers[0][2]
@@ -825,37 +788,35 @@ def drawValuesInInterpolationSpace(font, display, area, masterLayers, positiveCo
 		# Interpolation
 		elif masterLayers[0][0] <= instance.axes[0] <= masterLayers[-1][0]:
 			for i in range(len(masterLayers) - 1):
-				
+
 				if masterLayers[i][0] == instance.axes[0]:
 					sbValue = masterLayers[i][2]
 
 				elif masterLayers[i][0] < instance.axes[0] < masterLayers[i + 1][0]:
 					l1 = masterLayers[i][2]
-					l2 = masterLayers[i+1][2]
-					t = NormalizeMinMax(masterLayers[i][0], masterLayers[i+1][0], 0, 1, instance.axes[0])
+					l2 = masterLayers[i + 1][2]
+					t = NormalizeMinMax(masterLayers[i][0], masterLayers[i + 1][0], 0, 1, instance.axes[0])
 					sbValue = Interpolate(l1, l2, t)
 
 				elif masterLayers[i + 1][0] == instance.axes[0]:
 					sbValue = masterLayers[i + 1][2]
 
-
-		# Extrapolation 
+		# Extrapolation
 		if instance.axes[0] > masterLayers[-1][0]:
 			l1 = masterLayers[-2][2]
 			l2 = masterLayers[-1][2]
 			t = NormalizeMinMax(masterLayers[-2][0], masterLayers[-1][0], 0, 1, instance.axes[0])
 			sbValue = Interpolate(l1, l2, t)
 
-
 		value = Value(instanceCount, sbValue)
-#			value = Value(instance.axes[0], sbValue)
-#			if layer.layerId == font.selectedFontMaster.id:
-#				value.size = POINTSIZELARGE
+		# value = Value(instance.axes[0], sbValue)
+		# if layer.layerId == font.selectedFontMaster.id:
+		# 	value.size = POINTSIZELARGE
 		value.label = int(round(sbValue))
 		value.associatedObject = instance
 		area.addValue(value)
 
-		if instance.active == False:
+		if not instance.active:
 			value.color = (128, 128, 128)
 			value.label = None
 		else:
@@ -867,11 +828,8 @@ def drawValuesInInterpolationSpace(font, display, area, masterLayers, positiveCo
 		instanceCount += 1
 
 
-
-
-
-
-def _addSidebearings(display, glyph, side, mode, title = None, titleAlign = 'left', glyphSide = 'left', activeLayer = None):
+"""
+def _addSidebearings(display, glyph, side, mode, title=None, titleAlign='left', glyphSide='left', activeLayer=None):
 	raise("unused")
 	sbArea = Area(AREASTANDARDWIDTH, AREASTANDARDHEIGHT, title, titleAlign)
 	font = glyph.parent
@@ -891,7 +849,7 @@ def _addSidebearings(display, glyph, side, mode, title = None, titleAlign = 'lef
 				value.size = POINTSIZELARGE
 			value.label = sbValue
 			sbArea.addValue(value)
-			i+=1
+			i += 1
 
 	elif mode == 'instances':
 		# Cache
@@ -909,7 +867,7 @@ def _addSidebearings(display, glyph, side, mode, title = None, titleAlign = 'lef
 					masterLayer.append(masterLayer[1].RSB)
 
 
-			drawValuesInInterpolationSpace(font, display, sbArea, glyphMasterLayers, glyphSide = glyphSide, activeLayer = activeLayer)
+			drawValuesInInterpolationSpace(font, display, sbArea, glyphMasterLayers, glyphSide=glyphSide, activeLayer=activeLayer)
 			areaCache[key] = {
 				'compareString': compareString,
 				'area': sbArea,
@@ -918,16 +876,16 @@ def _addSidebearings(display, glyph, side, mode, title = None, titleAlign = 'lef
 			sbArea = areaCache[key]['area']
 
 	return sbArea
- 
+"""
 
 
-def addValues(plugin, action, layers, layersWithoutDeviations, masterValues, display, glyph, sideOfGlyph, glyphSideOnDisplay, mode, title = None, activeLayer = None, bgColor = None):
+def addValues(plugin, action, layers, layersWithoutDeviations, masterValues, display, glyph, sideOfGlyph, glyphSideOnDisplay, mode, title=None, activeLayer=None, bgColor=None):
 
-	sbArea = Area(AREASTANDARDWIDTH, AREASTANDARDHEIGHT, title, titleAlign = sideOfGlyph or 'center', bgColor = bgColor)
+	sbArea = Area(AREASTANDARDWIDTH, AREASTANDARDHEIGHT, title, titleAlign=sideOfGlyph or 'center', bgColor=bgColor)
 	font = glyph.parent
 
 	if mode == 'masters':
-		
+
 		glyphMasterLayers = GSGlyph_MasterLayers(glyph)
 
 		i = 0
@@ -951,7 +909,6 @@ def addValues(plugin, action, layers, layersWithoutDeviations, masterValues, dis
 			elif action == 'kerning':
 				sbValue = layer.bounds.origin.y
 
-
 			# Empty layer
 			if sbValue == 0:
 				if not layer.paths and not layer.components:
@@ -964,14 +921,11 @@ def addValues(plugin, action, layers, layersWithoutDeviations, masterValues, dis
 			value.label = sbValue
 			sbArea.addValue(value)
 
-			i+=1
+			i += 1
 
 	elif mode == 'instances':
-
-#		instanceMasters = [x[0] for x in layers[0][1].sortedInterpolationValues]
-
-
-#		mastersAdded = []
+		# instanceMasters = [x[0] for x in layers[0][1].sortedInterpolationValues]
+		# mastersAdded = []
 
 		for instanceCount, instance, layer in layers:
 
@@ -985,7 +939,7 @@ def addValues(plugin, action, layers, layersWithoutDeviations, masterValues, dis
 					sbValue = layer.RSB
 					if layersWithoutDeviations:
 						sbValue2 = layersWithoutDeviations[instanceCount].RSB
-#					print sbValue
+					# print sbValue
 			elif action == 'width':
 				sbValue = layer.width
 				if layersWithoutDeviations:
@@ -1014,9 +968,8 @@ def addValues(plugin, action, layers, layersWithoutDeviations, masterValues, dis
 
 			value = Value(instanceCount, sbValue)
 
-
-			# Value is valid			
-			if sbValue != None:
+			# Value is valid
+			if sbValue is not None:
 				if instance.active:
 					value.color = ACTIVECOLOR
 					value.label = int(round(sbValue))
@@ -1025,12 +978,11 @@ def addValues(plugin, action, layers, layersWithoutDeviations, masterValues, dis
 					value.label = None
 
 				# Add second value
-				if sbValue != None and sbValue2 != None and sbValue != sbValue2 and abs(sbValue - sbValue2) > 1.0:
+				if sbValue is not None and sbValue2 is not None and sbValue != sbValue2 and abs(sbValue - sbValue2) > 1.0:
 					value.color = DEVIATIONORIGINALCOLOR
 					value.y2 = value.y
 					value.y = sbValue2
-#					print 'Devitation', abs(sbValue - sbValue2)
-
+					# print 'Devitation', abs(sbValue - sbValue2)
 
 			# Value is empty
 			else:
@@ -1041,10 +993,8 @@ def addValues(plugin, action, layers, layersWithoutDeviations, masterValues, dis
 			#print action, value
 			sbArea.addValue(value)
 
-
 		# Add masters
 		sbArea.addMasterValues(masterValues, font, activeLayer, glyphSideOnDisplay)
-
 
 	return sbArea
 
@@ -1074,7 +1024,7 @@ def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activ
 
 	font = leftGlyph.parent
 
-	kerningArea = Area(AREASTANDARDWIDTH, AREASTANDARDHEIGHT, title = 'Kerning', titleAlign = 'center')
+	kerningArea = Area(AREASTANDARDWIDTH, AREASTANDARDHEIGHT, title='Kerning', titleAlign='center')
 
 	for master in font.masters:
 		pairHasKerning = False
@@ -1109,7 +1059,6 @@ def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activ
 				else:
 					value.color = (128, 128, 128)
 
-
 		elif mode == 'instances':
 			instanceCount = 0
 			for instance in font.instances:
@@ -1125,8 +1074,8 @@ def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activ
 						sbValue = 0
 					value = Value(instanceCount, sbValue)
 
-					# Value is valid			
-					if sbValue != None:
+					# Value is valid
+					if sbValue is not None:
 						if instance.active:
 
 							if sbValue < 0:
@@ -1139,7 +1088,6 @@ def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activ
 							value.color = INACTIVECOLOR
 							value.label = None
 
-
 					# Value is empty
 					else:
 						value.color = (128, 128, 128)
@@ -1149,18 +1097,14 @@ def addKerning(display, plugin, leftGlyph, rightGlyph, mode, masterValues, activ
 
 					kerningArea.addValue(value)
 
-
-
 			# Add masters
 			kerningArea.addMasterValues(masterValues, font, activeLayer, None)
 
-
 	return kerningArea
 
-			
 
 def addInterpolation(display, font, mode, title):
-	
+
 	instancesArea = Area(AREASTANDARDWIDTH, AREASTANDARDHEIGHT, title, 'center')
 
 	if mode == 'masters':
@@ -1177,21 +1121,17 @@ def addInterpolation(display, font, mode, title):
 
 	elif mode == 'instances':
 
-
 		glyphMasterLayers = GSFont_MasterLayers(font)
 
 		# extend masters list with interpolatable values
 		for masterLayer in glyphMasterLayers:
 			masterLayer.append(masterLayer[1].axes[0])
 
-
-
-
 		# Cache
 		compareString = str(font.selectedFontMaster) + str(font.selectedLayers[0]) + str(glyphMasterLayers)
 		key = 'interpolation'
 		if key not in areaCache or compareString != areaCache[key]['compareString']:
-			drawValuesInInterpolationSpace(font, display, instancesArea, glyphMasterLayers, positiveColor = (234, 102, 50))
+			drawValuesInInterpolationSpace(font, display, instancesArea, glyphMasterLayers, positiveColor=(234, 102, 50))
 			areaCache[key] = {
 				'compareString': compareString,
 				'area': instancesArea,
@@ -1199,32 +1139,26 @@ def addInterpolation(display, font, mode, title):
 		else:
 			instancesArea = areaCache[key]['area']
 
-
 	return instancesArea
-
 
 
 def foreground(plugin, layer):
 
 	try:
-
-
-
 		calcTime = time.time()
 
 		layer = plugin.controller.graphicView().activeLayer()
 		font = layer.parent.parent
 
-#		if not font.tempData.has_key('spaceBarTab'):
-#			font.tempData['spaceBarTab'] = font.currentTab
+		# if not font.tempData.has_key('spaceBarTab'):
+		# 	font.tempData['spaceBarTab'] = font.currentTab
 
 		tab = font.currentTab
 		font.tempData['spaceBarAreas'] = []
 		display = Display(plugin)
 
 		# Settings
-		mode = plugin.getPreference('mode') # masters or instances
-
+		mode = plugin.getPreference('mode')  # masters or instances
 
 		# Prepare layers cache
 		currentTabString = str(font.selectedFontMaster) + ','.join(tab.features) + tab.text
@@ -1233,7 +1167,7 @@ def foreground(plugin, layer):
 			plugin.tabLayers = tab.composedLayers
 		textCursor = tab.textCursor
 
-#		print font#tab, tab.graphicView()
+		# print font#tab, tab.graphicView()
 
 		if font.tool == 'TextTool' or font.tool == 'SelectTool':
 
@@ -1250,7 +1184,6 @@ def foreground(plugin, layer):
 				if font.instances:
 					instanceMasters = [x[0] for x in GSInstance_SortedInterpolationValues(font.instances[0])]
 					instanceCount = 0
-
 
 					for instance in font.instances:
 
@@ -1276,12 +1209,12 @@ def foreground(plugin, layer):
 										# print()
 										# ###delete
 										plugin.masterValues.append(value)
-								#		instanceCount += 1
+										# instanceCount += 1
 
 							newInstanceMasters = [x[0] for x in GSInstance_SortedInterpolationValues(instance)]
 
 							if not newInstanceMasters[0] in mastersAdded and len(newInstanceMasters) == 2 and instanceMasters != newInstanceMasters:
-								
+
 								if activeInstances[0].axes[0] <= newInstanceMasters[0].axes[0] <= activeInstances[-1].axes[0]:
 									mastersAdded.append(newInstanceMasters[0])
 
@@ -1305,12 +1238,9 @@ def foreground(plugin, layer):
 									plugin.masterValues.append(value)
 							instanceCount += 1
 
-
-
 			# Add interpolation space panel
 			if plugin.getPreference('interpolation'):
 				font.tempData['spaceBarAreas'].append([addInterpolation(display, font, mode, plugin.names['interpolation'])])
-
 
 			# Prepare glyphs for display
 			leftGlyph = None
@@ -1320,16 +1250,15 @@ def foreground(plugin, layer):
 
 			cachedGlyphs = tab.graphicView().layoutManager().cachedLayers()
 
+			tabLayers = plugin.tabLayers
 			# Catch left and right glyphs
-			if tab and tab.textRange == 0 and textCursor > 0 and len(plugin.tabLayers) >= 1 and 'GSGlyph' in plugin.tabLayers[textCursor - 1].parent.__class__.__name__:
+			if tab and tab.textRange == 0 and textCursor > 0 and len(tabLayers) >= 1 and isinstance(tabLayers[textCursor - 1].parent, GSGlyph):
 
-				leftGlyph = plugin.tabLayers[textCursor - 1].parent
+				leftGlyph = tabLayers[textCursor - 1].parent
 				leftLayer = cachedGlyphs[textCursor - 1]
 
-
-
-			if tab and tab.textRange == 0 and 0 <= textCursor < len(tab.text) and len(plugin.tabLayers) >= 1 and 'GSGlyph' in plugin.tabLayers[textCursor].parent.__class__.__name__:
-				rightGlyph = plugin.tabLayers[textCursor].parent
+			if tab and tab.textRange == 0 and 0 <= textCursor < len(tab.text) and len(tabLayers) >= 1 and isinstance(tabLayers[textCursor].parent, GSGlyph):
+				rightGlyph = tabLayers[textCursor].parent
 				rightLayer = cachedGlyphs[textCursor]
 
 			# Change order for RTL
@@ -1337,9 +1266,7 @@ def foreground(plugin, layer):
 				leftGlyph, rightGlyph = rightGlyph, leftGlyph
 				leftLayer, rightLayer = rightLayer, leftLayer
 
-
 			preferencesString = str([plugin.getPreference(z) for z in plugin.names.keys()])
-
 
 			# Left Glyph
 
@@ -1365,7 +1292,8 @@ def foreground(plugin, layer):
 					leftLayersWithoutDeviations = []
 					glyphHasDeviations = False
 					for layer in leftGlyph.layers:
-						if layer.name is None: continue ### if layer has no name, then skip it
+						if layer.name is None:
+							continue  # if layer has no name, then skip it
 						if '[' in layer.name or ']' in layer.name or '{' in layer.name:
 							glyphHasDeviations = True
 							break
@@ -1386,11 +1314,10 @@ def foreground(plugin, layer):
 									layer = glyph.interpolate_keepSmart_error_(instance, True, None)
 								leftLayersWithoutDeviations.append(layer)
 
-
-
 					masterValues = copy.copy(plugin.masterValues)
 					for layer in leftGlyph.layers:
-						if layer.name is None: continue ### if layer has no name, then skip it
+						if layer.name is None:
+							continue  # if layer has no name, then skip it
 						if '{' in layer.name and '}' in layer.name:
 							interpolationValues = map(int, layer.name.split('{')[1].split('}')[0].split(','))
 
@@ -1448,15 +1375,14 @@ def foreground(plugin, layer):
 						['sidebearings', 'RSB', 'right'],
 					]:
 						if leftGlyph and plugin.getPreference(action):
-							areas.append(addValues(plugin, action, leftLayers, leftLayersWithoutDeviations, masterValues, display, leftGlyph, sideOfGlyph, 'left', mode, title = plugin.names[name], activeLayer = leftLayer, bgColor = LEFTBGCOLOR))
+							areas.append(addValues(plugin, action, leftLayers, leftLayersWithoutDeviations, masterValues, display, leftGlyph, sideOfGlyph, 'left', mode, title=plugin.names[name], activeLayer=leftLayer, bgColor=LEFTBGCOLOR))
 					plugin.areaCache['left'] = areas
 
 				font.tempData['spaceBarAreas'].append(plugin.areaCache['left'])
 
 			# Kerning
 			if leftGlyph and rightGlyph and plugin.getPreference('kerning'):
-				font.tempData['spaceBarAreas'].append([addKerning(display, plugin, leftGlyph, rightGlyph, mode, plugin.masterValues, activeLayer = leftLayer, writingDirection = tab.direction)])
-
+				font.tempData['spaceBarAreas'].append([addKerning(display, plugin, leftGlyph, rightGlyph, mode, plugin.masterValues, activeLayer=leftLayer, writingDirection=tab.direction)])
 
 			# Right Glyph
 			if rightGlyph:
@@ -1470,8 +1396,6 @@ def foreground(plugin, layer):
 					rightLayers = []
 					instanceCount = 0
 					for instance in font.instances:
-
-
 						if GSInstance_ShowInPanel(instance, plugin):
 							layer = instance.interpolatedFontProxy.glyphs[rightGlyph.name].layers[instance.interpolatedFontProxy.fontMasterID()]
 							rightLayers.append((instanceCount, instance, layer))
@@ -1481,7 +1405,8 @@ def foreground(plugin, layer):
 					rightLayersWithoutDeviations = []
 					glyphHasDeviations = False
 					for layer in rightGlyph.layers:
-						if layer.name is None: continue ### if layer has no name, then skip it
+						if layer.name is None:
+							continue  # if layer has no name, then skip it
 						if '[' in layer.name or ']' in layer.name or '{' in layer.name:
 							glyphHasDeviations = True
 							break
@@ -1505,14 +1430,14 @@ def foreground(plugin, layer):
 					# Add brace layers to masters
 					masterValues = copy.copy(plugin.masterValues)
 					for layer in rightGlyph.layers:
-						coordinates  = None
+						coordinates = None
 						if layer.attributes is not None and 'coordinates' in layer.attributes:
 							coordinates = []
 							coordinatesAttribut = layer.attributes['coordinates']
 							for axis in font.axes:
 								axisValue = coordinatesAttribut[axis.axisId]
 								coordinates.append(axisValue)
-						
+
 						if coordinates:
 							if len(coordinates) == 1:
 								for instanceCount, instance, _layer in rightLayers:
@@ -1552,15 +1477,12 @@ def foreground(plugin, layer):
 						['sidebearings', 'RSB', 'right'],
 					]:
 						if rightGlyph and plugin.getPreference(action):
-							areas.append(addValues(plugin, action, rightLayers, rightLayersWithoutDeviations, masterValues, display, rightGlyph, sideOfGlyph, 'right', mode, title = plugin.names[name], activeLayer = rightLayer, bgColor = RIGHTBGCOLOR))
+							areas.append(addValues(plugin, action, rightLayers, rightLayersWithoutDeviations, masterValues, display, rightGlyph, sideOfGlyph, 'right', mode, title=plugin.names[name], activeLayer=rightLayer, bgColor=RIGHTBGCOLOR))
 					plugin.areaCache['right'] = areas
 
 				font.tempData['spaceBarAreas'].append(plugin.areaCache['right'])
 
-
 			calcTime = time.time() - calcTime
-
-
 
 		for i, subAreas in enumerate(font.tempData['spaceBarAreas']):
 			for area in subAreas:
@@ -1576,7 +1498,7 @@ def foreground(plugin, layer):
 			drawTime = time.time() - drawTime
 			left = tab.viewPort.origin.x + PAGEMARGIN
 			top = tab.viewPort.origin.y + PAGEMARGIN
-			plugin.drawTextAtPoint('Calc: %ss, Draw: %ss, Total: %ss' % (str(calcTime)[:4], str(drawTime)[:4], str(calcTime + drawTime)[:4]), NSPoint(left, top + 10), fontSize = 10 * tab.scale, align = 'left')
+			plugin.drawTextAtPoint('Calc: %ss, Draw: %ss, Total: %ss' % (str(calcTime)[:4], str(drawTime)[:4], str(calcTime + drawTime)[:4]), NSPoint(left, top + 10), fontSize=10 * tab.scale, align='left')
 
 	except:
 		print(traceback.format_exc())
@@ -1595,16 +1517,14 @@ def start(plugin):
 	plugin.mastersChangedString = ''
 
 
-
-
 def mouse(plugin, info):
 
 	return
-
+	"""
 	tab = Glyphs.font.currentTab
 	if tab:
 		font = Glyphs.font
-		
+
 		tabHeight = tab.previewHeight
 		if tabHeight > 0:
 			tabHeight += 1
