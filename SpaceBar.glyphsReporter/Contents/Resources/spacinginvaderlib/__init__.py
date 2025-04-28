@@ -9,7 +9,7 @@ from __future__ import print_function, unicode_literals
 import copy
 import traceback
 import time
-from GlyphsApp import GSRTL, GSGlyph, GSFontMaster, GSLayer
+from GlyphsApp import GSRTL, GSGlyph, GSFontMaster, GSLayer, INSTANCETYPESINGLE
 
 from AppKit import NSBezierPath, NSPoint, NSColor, NSRect, NSHomeDirectory, NSImage, NSSize, NSZeroRect, NSCompositeSourceOver
 
@@ -154,38 +154,43 @@ def GSFont_MasterLayers(self):
 	return layers
 
 
-def GSFont_ActiveInstances(self):
+def GSFont_ActiveInstances(font):
 
 	instances = []
 
-	for instance in self.instances:
-		if instance.active:
-			instances.append(instance)
+	for instance in font.instances:
+		if not instance.active:
+			continue
+		if instance.type != INSTANCETYPESINGLE:
+			continue
+		instances.append(instance)
 
 	return instances
 
 
-def GSFont_VisibleInstances(self, plugin):
+def GSFont_VisibleInstances(instance, plugin):
 
 	instances = []
 
-	for instance in self.instances:
+	for instance in instance.instances:
 		if GSInstance_ShowInPanel(instance, plugin):
 			instances.append(instance)
 	return instances
 
 
-def GSInstance_ShowInPanel(self, plugin):
-	return not plugin.getPreference('onlyActiveInstances') or plugin.getPreference('onlyActiveInstances') and self.active
+def GSInstance_ShowInPanel(instance, plugin):
+	if instance.type != INSTANCETYPESINGLE:
+		return False
+	return not plugin.getPreference('onlyActiveInstances') or plugin.getPreference('onlyActiveInstances') and instance.active
 
 
-def GSInstance_SortedInterpolationValues(self):
+def GSInstance_SortedInterpolationValues(instance):
 
-	font = self.font
+	font = instance.font
 
-	instanceMastersKeys = list(self.instanceInterpolations.keys())
+	instanceMastersKeys = list(instance.instanceInterpolations.keys())
 	instanceMastersKeys.sort(key=lambda x: font.masters.index(font.masters[x]))
-	return [[font.masters[x], self.instanceInterpolations[x]] for x in instanceMastersKeys]
+	return [[font.masters[x], instance.instanceInterpolations[x]] for x in instanceMastersKeys]
 
 ######################################################################################################################################################################
 
@@ -1182,11 +1187,14 @@ def foreground(plugin, layer):
 				mastersAdded = []
 
 				if font.instances:
-					instanceMasters = [x[0] for x in GSInstance_SortedInterpolationValues(font.instances[0])]
+					instanceMasters = None
 					instanceCount = 0
-
 					for instance in font.instances:
-
+						if instance.type != INSTANCETYPESINGLE:
+							continue
+						if instanceMasters is None:
+							instanceMasters = [x[0] for x in GSInstance_SortedInterpolationValues(instance)]
+					
 						if GSInstance_ShowInPanel(instance, plugin):
 
 							for master in font.masters:
